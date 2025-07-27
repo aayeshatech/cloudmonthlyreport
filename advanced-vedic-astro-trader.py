@@ -1,784 +1,1302 @@
-import streamlit as st
-import pandas as pd
-import numpy as np
-from datetime import datetime, date, time, timedelta
-import random
-from dataclasses import dataclass
-from typing import List, Dict
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Astrological Trading Analysis Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-# Page configuration
-st.set_page_config(
-    page_title="Advanced Vedic Astro Trader Pro",
-    layout="wide",
-    initial_sidebar_state="expanded",
-    page_icon="🔮"
-)
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+            overflow-x: hidden;
+        }
 
-# Configuration Classes
-@dataclass
-class PlanetaryData:
-    name: str
-    longitude: float
-    sign: str
-    nakshatra: str
-    pada: int
-    retrograde: bool
-    strength: float
-    house: int
-    aspects: List[str]
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
 
-# Constants
-NAKSHATRAS = [
-    {"name": "Ashwini", "lord": "Ketu", "element": "Earth"},
-    {"name": "Bharani", "lord": "Venus", "element": "Earth"},
-    {"name": "Krittika", "lord": "Sun", "element": "Fire"},
-    {"name": "Rohini", "lord": "Moon", "element": "Earth"},
-    {"name": "Mrigashira", "lord": "Mars", "element": "Earth"},
-    {"name": "Ardra", "lord": "Rahu", "element": "Water"},
-    {"name": "Punarvasu", "lord": "Jupiter", "element": "Water"},
-    {"name": "Pushya", "lord": "Saturn", "element": "Water"},
-    {"name": "Ashlesha", "lord": "Mercury", "element": "Water"},
-    {"name": "Magha", "lord": "Ketu", "element": "Fire"},
-    {"name": "Purva Phalguni", "lord": "Venus", "element": "Fire"},
-    {"name": "Uttara Phalguni", "lord": "Sun", "element": "Fire"},
-    {"name": "Hasta", "lord": "Moon", "element": "Earth"},
-    {"name": "Chitra", "lord": "Mars", "element": "Fire"},
-    {"name": "Swati", "lord": "Rahu", "element": "Air"},
-    {"name": "Vishakha", "lord": "Jupiter", "element": "Fire"},
-    {"name": "Anuradha", "lord": "Saturn", "element": "Water"},
-    {"name": "Jyeshtha", "lord": "Mercury", "element": "Air"},
-    {"name": "Mula", "lord": "Ketu", "element": "Air"},
-    {"name": "Purva Ashadha", "lord": "Venus", "element": "Air"},
-    {"name": "Uttara Ashadha", "lord": "Sun", "element": "Fire"},
-    {"name": "Shravana", "lord": "Moon", "element": "Air"},
-    {"name": "Dhanishta", "lord": "Mars", "element": "Air"},
-    {"name": "Shatabhisha", "lord": "Rahu", "element": "Air"},
-    {"name": "Purva Bhadrapada", "lord": "Jupiter", "element": "Fire"},
-    {"name": "Uttara Bhadrapada", "lord": "Saturn", "element": "Air"},
-    {"name": "Revati", "lord": "Mercury", "element": "Water"}
-]
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            position: relative;
+        }
 
-ZODIAC_SIGNS = [
-    {"name": "Aries", "lord": "Mars", "element": "Fire"},
-    {"name": "Taurus", "lord": "Venus", "element": "Earth"},
-    {"name": "Gemini", "lord": "Mercury", "element": "Air"},
-    {"name": "Cancer", "lord": "Moon", "element": "Water"},
-    {"name": "Leo", "lord": "Sun", "element": "Fire"},
-    {"name": "Virgo", "lord": "Mercury", "element": "Earth"},
-    {"name": "Libra", "lord": "Venus", "element": "Air"},
-    {"name": "Scorpio", "lord": "Mars", "element": "Water"},
-    {"name": "Sagittarius", "lord": "Jupiter", "element": "Fire"},
-    {"name": "Capricorn", "lord": "Saturn", "element": "Earth"},
-    {"name": "Aquarius", "lord": "Saturn", "element": "Air"},
-    {"name": "Pisces", "lord": "Jupiter", "element": "Water"}
-]
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #ffd700, transparent);
+        }
 
-PLANETS = [
-    {"name": "Sun", "symbol": "☉", "nature": "Malefic"},
-    {"name": "Moon", "symbol": "☽", "nature": "Benefic"},
-    {"name": "Mercury", "symbol": "☿", "nature": "Neutral"},
-    {"name": "Venus", "symbol": "♀", "nature": "Benefic"},
-    {"name": "Mars", "symbol": "♂", "nature": "Malefic"},
-    {"name": "Jupiter", "symbol": "♃", "nature": "Benefic"},
-    {"name": "Saturn", "symbol": "♄", "nature": "Malefic"},
-    {"name": "Rahu", "symbol": "☊", "nature": "Malefic"},
-    {"name": "Ketu", "symbol": "☋", "nature": "Malefic"}
-]
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            background: linear-gradient(45deg, #ffd700, #ffb347, #ff6b35);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
+            animation: glow 2s ease-in-out infinite alternate;
+        }
 
-SECTORS = [
-    {"name": "Banking & Financial Services", "symbols": ["HDFCBANK", "ICICIBANK", "SBIN", "KOTAKBANK"], "rulingPlanet": "Jupiter"},
-    {"name": "Information Technology", "symbols": ["TCS", "INFY", "WIPRO", "HCLTECH"], "rulingPlanet": "Mercury"},
-    {"name": "Automobile & Auto Components", "symbols": ["MARUTI", "TATAMOTORS", "M&M", "BAJAJ-AUTO"], "rulingPlanet": "Venus"},
-    {"name": "Energy & Power", "symbols": ["RELIANCE", "ONGC", "IOC", "BPCL"], "rulingPlanet": "Sun"},
-    {"name": "Pharmaceuticals & Healthcare", "symbols": ["SUNPHARMA", "DRREDDY", "CIPLA", "LUPIN"], "rulingPlanet": "Moon"},
-    {"name": "Metals & Mining", "symbols": ["TATASTEEL", "JSWSTEEL", "VEDL", "HINDALCO"], "rulingPlanet": "Mars"},
-    {"name": "FMCG & Consumer Goods", "symbols": ["HUL", "ITC", "NESTLEIND", "BRITANNIA"], "rulingPlanet": "Venus"},
-    {"name": "Infrastructure & Construction", "symbols": ["LT", "ADANIPORTS", "ULTRACEMCO", "ACC"], "rulingPlanet": "Saturn"}
-]
+        @keyframes glow {
+            from { filter: brightness(1); }
+            to { filter: brightness(1.2); }
+        }
 
-COMMODITIES = [
-    {"name": "Gold", "symbol": "GOLD", "global_symbol": "XAUUSD", "rulingPlanet": "Sun", "market_hours": "24/7"},
-    {"name": "Silver", "symbol": "SILVER", "global_symbol": "XAGUSD", "rulingPlanet": "Moon", "market_hours": "24/7"},
-    {"name": "Crude Oil", "symbol": "CRUDEOIL", "global_symbol": "CL1!", "rulingPlanet": "Mars", "market_hours": "24/6"},
-    {"name": "Natural Gas", "symbol": "NATURALGAS", "global_symbol": "NG1!", "rulingPlanet": "Rahu", "market_hours": "24/6"},
-    {"name": "Copper", "symbol": "COPPER", "global_symbol": "HG1!", "rulingPlanet": "Venus", "market_hours": "24/6"},
-    {"name": "Bitcoin", "symbol": "BTC-USD", "global_symbol": "BTCUSD", "rulingPlanet": "Rahu", "market_hours": "24/7"},
-    {"name": "Ethereum", "symbol": "ETH-USD", "global_symbol": "ETHUSD", "rulingPlanet": "Mercury", "market_hours": "24/7"}
-]
+        .header p {
+            font-size: 1.2rem;
+            color: #b8b8b8;
+            margin-bottom: 10px;
+        }
 
-MOON_PHASES = ["New Moon", "Waxing Crescent", "First Quarter", "Waxing Gibbous", 
-               "Full Moon", "Waning Gibbous", "Third Quarter", "Waning Crescent"]
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
 
-# Helper Functions
-@st.cache_data
-def generate_planetary_data(selected_date: date) -> List[PlanetaryData]:
-    """Generate realistic planetary positions"""
-    planetary_data = []
-    
-    for i, planet in enumerate(PLANETS):
-        # Realistic longitude calculation
-        if planet["name"] == "Sun":
-            longitude = (selected_date.timetuple().tm_yday * 0.9856) % 360
-        elif planet["name"] == "Moon":
-            longitude = (selected_date.timetuple().tm_yday * 13.1764) % 360
-        else:
-            longitude = (selected_date.timetuple().tm_yday * (0.5 + i * 0.3)) % 360
-        
-        sign_index = int(longitude / 30)
-        sign = ZODIAC_SIGNS[sign_index]["name"]
-        
-        nakshatra_index = int((longitude % 360) / 13.333333)
-        nakshatra = NAKSHATRAS[min(nakshatra_index, 26)]["name"]
-        
-        pada = int(((longitude % 360) % 13.333333) / 3.333333) + 1
-        retrograde = random.choice([True, False]) if planet["name"] not in ["Sun", "Moon"] else False
-        house = ((sign_index + random.randint(0, 2)) % 12) + 1
-        
-        # Generate aspects
-        aspects = []
-        for other_planet in PLANETS:
-            if other_planet["name"] != planet["name"] and random.random() < 0.3:
-                aspect_type = random.choice(["Conjunction", "Opposition", "Trine", "Square"])
-                aspects.append(f"{other_planet['name']} {aspect_type}")
-        
-        # Calculate strength
-        strength = calculate_planetary_strength(planet["name"], sign, retrograde, nakshatra)
-        
-        planet_data = PlanetaryData(
-            name=planet["name"],
-            longitude=longitude,
-            sign=sign,
-            nakshatra=nakshatra,
-            pada=pada,
-            retrograde=retrograde,
-            strength=strength,
-            house=house,
-            aspects=aspects
-        )
-        
-        planetary_data.append(planet_data)
-    
-    return planetary_data
+        .control-panel {
+            background: rgba(26, 26, 46, 0.8);
+            border-radius: 20px;
+            padding: 30px;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
 
-def calculate_planetary_strength(planet_name: str, sign: str, retrograde: bool, nakshatra: str) -> float:
-    """Calculate planetary strength"""
-    base_strength = 50
-    
-    exaltation_signs = {
-        "Sun": "Aries", "Moon": "Taurus", "Mercury": "Virgo", "Venus": "Pisces",
-        "Mars": "Capricorn", "Jupiter": "Cancer", "Saturn": "Libra"
-    }
-    
-    debilitation_signs = {
-        "Sun": "Libra", "Moon": "Scorpio", "Mercury": "Pisces", "Venus": "Virgo", 
-        "Mars": "Cancer", "Jupiter": "Capricorn", "Saturn": "Aries"
-    }
-    
-    if sign == exaltation_signs.get(planet_name):
-        base_strength += 30
-    elif sign == debilitation_signs.get(planet_name):
-        base_strength -= 30
-    
-    if retrograde and planet_name not in ["Sun", "Moon"]:
-        base_strength += 10
-    
-    return max(0, min(100, base_strength + random.randint(-10, 10)))
+        .quick-stats {
+            background: rgba(22, 33, 62, 0.8);
+            border-radius: 20px;
+            padding: 30px;
+            border: 1px solid rgba(255, 179, 71, 0.2);
+            backdrop-filter: blur(10px);
+        }
 
-def get_moon_phase(date_obj: date) -> str:
-    """Calculate moon phase"""
-    days_since_new_moon = (date_obj.toordinal() - date(2024, 1, 11).toordinal()) % 29.5
-    phase_index = int(days_since_new_moon / 3.69)
-    return MOON_PHASES[min(phase_index, 7)]
+        .section-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #ffd700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
 
-# Custom CSS
-st.markdown("""
-<style>
-.metric-card {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    padding: 1rem;
-    border-radius: 10px;
-    color: white;
-    text-align: center;
-    margin: 0.5rem 0;
-}
-.bullish-card {
-    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-    padding: 1rem;
-    border-radius: 10px;
-    color: white;
-    margin: 0.5rem 0;
-}
-.bearish-card {
-    background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
-    padding: 1rem;
-    border-radius: 10px;
-    color: white;
-    margin: 0.5rem 0;
-}
-.neutral-card {
-    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
-    padding: 1rem;
-    border-radius: 10px;
-    color: white;
-    margin: 0.5rem 0;
-}
-.stDataFrame > div {
-    font-size: 14px;
-}
-</style>
-""", unsafe_allow_html=True)
+        .input-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
 
-# Header
-st.markdown("""
-<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-            padding: 2rem; border-radius: 10px; margin-bottom: 2rem;">
-    <h1 style="color: white; text-align: center; margin: 0;">
-        🔮 Advanced Vedic Astro Trader Pro
-    </h1>
-    <p style="color: white; text-align: center; margin: 0.5rem 0 0 0;">
-        Comprehensive Market Analysis using Vedic Astrology & Planetary Positions
-    </p>
-</div>
-""", unsafe_allow_html=True)
+        .input-group {
+            position: relative;
+        }
 
-# Sidebar
-with st.sidebar:
-    st.markdown("### 📊 Analysis Configuration")
-    
-    selected_date = st.date_input("📅 Trading Date", date.today())
-    
-    market_type = st.selectbox(
-        "🌍 Market Type", 
-        ["Indian", "Global", "Commodity", "Cryptocurrency", "Forex"]
-    )
-    
-    if market_type == "Indian":
-        markets = ["Nifty 50", "Bank Nifty", "Sensex", "Nifty IT", "Nifty Auto"]
-    elif market_type == "Global":
-        markets = ["Dow Jones", "Nasdaq", "S&P 500", "FTSE 100", "DAX"]
-    elif market_type == "Commodity":
-        markets = ["Gold", "Silver", "Crude Oil", "Natural Gas", "Copper"]
-    elif market_type == "Cryptocurrency":
-        markets = ["Bitcoin", "Ethereum", "Binance Coin", "Cardano", "Solana"]
-    else:  # Forex
-        markets = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CHF"]
-    
-    market_index = st.selectbox("📈 Primary Market", markets)
-    
-    start_time = st.time_input("🕐 Start Time", value=time(9, 15))
-    end_time = st.time_input("🕕 End Time", value=time(15, 30))
-    
-    analysis_depth = st.selectbox(
-        "🔍 Analysis Depth",
-        ["Quick", "Standard", "Comprehensive", "Deep Research"],
-        index=1
-    )
-    
-    include_risk = st.checkbox("⚠️ Include Risk Assessment", value=True)
-    include_portfolio = st.checkbox("💼 Portfolio Advice", value=True)
-    
-    if st.button("🚀 Generate Analysis", type="primary"):
-        st.session_state.run_analysis = True
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #ffd700;
+            font-size: 0.9rem;
+        }
 
-# Main Analysis
-if hasattr(st.session_state, 'run_analysis') and st.session_state.run_analysis:
-    with st.spinner("🔮 Performing astrological calculations..."):
-        
-        # Generate data
-        planetary_data = generate_planetary_data(selected_date)
-        moon_phase = get_moon_phase(selected_date)
-        
-        # Dashboard metrics
-        st.markdown("## 📊 Market Intelligence Dashboard")
-        
-        col1, col2, col3, col4, col5 = st.columns(5)
-        
-        with col1:
-            st.markdown(f"""
-                <div class="metric-card">
-                    <h3>🌙 Moon Phase</h3>
-                    <h2>{moon_phase}</h2>
-                </div>
-            """, unsafe_allow_html=True)
-        
-        with col2:
-            planetary_strength = sum(p.strength for p in planetary_data) / len(planetary_data)
-            st.markdown(f"""
-                <div class="metric-card">
-                    <h3>🌟 Planetary Strength</h3>
-                    <h2>{planetary_strength:.1f}%</h2>
-                </div>
-            """, unsafe_allow_html=True)
-        
-        with col3:
-            muhurat_quality = random.choice(["Good", "Average", "Caution"])
-            color = "green" if muhurat_quality == "Good" else "orange" if muhurat_quality == "Average" else "red"
-            st.markdown(f"""
-                <div class="metric-card" style="background: {color};">
-                    <h3>🕐 Muhurat Quality</h3>
-                    <h2>{muhurat_quality}</h2>
-                </div>
-            """, unsafe_allow_html=True)
-        
-        with col4:
-            retrograde_count = sum(1 for p in planetary_data if p.retrograde)
-            st.markdown(f"""
-                <div class="metric-card">
-                    <h3>↩️ Retrograde Planets</h3>
-                    <h2>{retrograde_count}</h2>
-                </div>
-            """, unsafe_allow_html=True)
-        
-        with col5:
-            market_volatility = random.choice(["Low", "Medium", "High"])
-            volatility_colors = {"Low": "green", "Medium": "orange", "High": "red"}
-            st.markdown(f"""
-                <div class="metric-card" style="background: {volatility_colors[market_volatility]};">
-                    <h3>📊 Market Volatility</h3>
-                    <h2>{market_volatility}</h2>
-                </div>
-            """, unsafe_allow_html=True)
-        
-        # Risk Assessment
-        if include_risk:
-            st.markdown("## ⚠️ Risk Assessment")
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            border-radius: 10px;
+            font-size: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            color: #e0e0e0;
+            transition: all 0.3s ease;
+        }
+
+        .input-group input:focus, .input-group select:focus {
+            outline: none;
+            border-color: #ffd700;
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.2);
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #ffd700, #ffb347);
+            color: #000;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(45deg, #ff6b35, #f7931e);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(255, 215, 0, 0.3);
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            border: 1px solid rgba(255, 215, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: scale(1.05);
+            border-color: rgba(255, 215, 0, 0.3);
+        }
+
+        .stat-card h3 {
+            font-size: 2rem;
+            color: #ffd700;
+            margin-bottom: 5px;
+        }
+
+        .stat-card p {
+            color: #b8b8b8;
+            font-size: 0.9rem;
+        }
+
+        .report-container {
+            background: rgba(26, 26, 46, 0.9);
+            border-radius: 20px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .report-header {
+            background: linear-gradient(45deg, #1a1a2e, #16213e);
+            color: #ffd700;
+            padding: 25px;
+            text-align: center;
+            border-bottom: 2px solid rgba(255, 215, 0, 0.3);
+        }
+
+        .report-tabs {
+            display: flex;
+            background: rgba(22, 33, 62, 0.8);
+            border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-right: 1px solid rgba(255, 215, 0, 0.1);
+            color: #b8b8b8;
+        }
+
+        .tab.active {
+            background: rgba(255, 215, 0, 0.1);
+            color: #ffd700;
+            border-bottom: 2px solid #ffd700;
+        }
+
+        .tab:hover {
+            background: rgba(255, 215, 0, 0.05);
+            color: #ffd700;
+        }
+
+        .tab-content {
+            padding: 30px;
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .forecast-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+            max-height: 600px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        .forecast-grid::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .forecast-grid::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        .forecast-grid::-webkit-scrollbar-thumb {
+            background: linear-gradient(45deg, #ffd700, #ffb347);
+            border-radius: 10px;
+        }
+
+        .forecast-grid::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(45deg, #ffb347, #ffd700);
+        }
+
+        .forecast-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 25px;
+            border-left: 4px solid #ffd700;
+            transition: all 0.3s ease;
+        }
+
+        .forecast-card:hover {
+            transform: translateX(10px);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .forecast-date {
+            font-size: 1.1rem;
+            color: #ffd700;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .forecast-event {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            color: #e0e0e0;
+        }
+
+        .forecast-impact {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .bullish {
+            background: linear-gradient(45deg, #4caf50, #8bc34a);
+            color: white;
+        }
+
+        .bearish {
+            background: linear-gradient(45deg, #f44336, #ff5722);
+            color: white;
+        }
+
+        .neutral {
+            background: linear-gradient(45deg, #ff9800, #ffc107);
+            color: #000;
+        }
+
+        .transit-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .transit-table th {
+            background: rgba(255, 215, 0, 0.1);
+            padding: 15px;
+            text-align: left;
+            color: #ffd700;
+            border-bottom: 2px solid rgba(255, 215, 0, 0.3);
+        }
+
+        .transit-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e0e0e0;
+        }
+
+        .transit-table tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .planetary-positions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .planet-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            border: 1px solid rgba(255, 215, 0, 0.1);
+        }
+
+        .planet-symbol {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .planet-degree {
+            color: #ffd700;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .planet-sign {
+            color: #b8b8b8;
+            font-size: 0.9rem;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 60px;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 215, 0, 0.3);
+            border-top: 4px solid #ffd700;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 30px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .signal-indicator {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 25px;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+        }
+
+        .buy-signal {
+            background: linear-gradient(45deg, #4caf50, #8bc34a);
+            color: white;
+            animation: pulse-green 2s infinite;
+        }
+
+        .sell-signal {
+            background: linear-gradient(45deg, #f44336, #ff5722);
+            color: white;
+            animation: pulse-red 2s infinite;
+        }
+
+        .hold-signal {
+            background: linear-gradient(45deg, #ff9800, #ffc107);
+            color: #000;
+        }
+
+        @keyframes pulse-green {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
+            50% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+        }
+
+        @keyframes pulse-red {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.7); }
+            50% { box-shadow: 0 0 0 10px rgba(244, 67, 54, 0); }
+        }
+
+        @media (max-width: 1200px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
             
-            malefic_strength = sum(p.strength for p in planetary_data if any(planet["name"] == p.name and planet["nature"] == "Malefic" for planet in PLANETS))
-            benefic_strength = sum(p.strength for p in planetary_data if any(planet["name"] == p.name and planet["nature"] == "Benefic" for planet in PLANETS))
+            .forecast-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
             
-            risk_score = min(100, max(0, 50 + (malefic_strength - benefic_strength) / 10 + retrograde_count * 5))
+            .header h1 {
+                font-size: 2rem;
+            }
             
-            if risk_score <= 30:
-                risk_level, risk_color = "Low", "green"
-            elif risk_score <= 60:
-                risk_level, risk_color = "Medium", "orange"
-            else:
-                risk_level, risk_color = "High", "red"
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
             
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.markdown(f"""
-                    <div style="background: {risk_color}; padding: 1rem; border-radius: 10px; color: white;">
-                        <h3>🎯 Risk Level: {risk_level}</h3>
-                        <h2>Score: {risk_score:.0f}/100</h2>
-                    </div>
-                """, unsafe_allow_html=True)
-            
-            with col2:
-                st.markdown(f"""
-                    <div class="metric-card">
-                        <h3>😇 Benefic Strength</h3>
-                        <h2>{benefic_strength:.1f}</h2>
-                    </div>
-                """, unsafe_allow_html=True)
-            
-            with col3:
-                st.markdown(f"""
-                    <div class="metric-card">
-                        <h3>😈 Malefic Strength</h3>
-                        <h2>{malefic_strength:.1f}</h2>
-                    </div>
-                """, unsafe_allow_html=True)
-        
-        # Tabbed Analysis
-        tab1, tab2, tab3, tab4, tab5 = st.tabs([
-            "🎯 Quick Signals", "🏭 Sector Analysis", "⏰ Time Analysis", 
-            "🪐 Planetary Details", "💼 Trading Signals"
-        ])
-        
-        with tab1:
-            st.markdown("### 🎯 Quick Trading Signals")
-            
-            # Generate signals based on market type
-            if market_type == "Indian":
-                signal_items = SECTORS
-                signal_type = "sector"
-            elif market_type == "Commodity":
-                signal_items = COMMODITIES[:5]  # Gold, Silver, Crude Oil, Natural Gas, Copper
-                signal_type = "commodity"
-            else:
-                # For Global, Crypto, Forex - create generic items
-                signal_items = [{"name": market} for market in markets[:6]]
-                signal_type = "market"
-            
-            bullish_count = random.randint(2, 4)
-            bearish_count = random.randint(1, 3)
-            neutral_count = random.randint(2, 4)
-            
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.markdown("#### 🟢 Bullish Opportunities")
-                for i in range(bullish_count):
-                    item = random.choice(signal_items)
-                    optimal_time = f"{random.randint(9, 15)}:{random.choice(['00', '30'])}"
-                    
-                    if market_type == "Commodity":
-                        planet_info = f"Ruling Planet: {item.get('rulingPlanet', 'N/A')}"
-                        if item['name'] == "Gold":
-                            driver = "Safe haven demand rising"
-                        elif item['name'] == "Silver":
-                            driver = "Industrial demand surge"
-                        elif item['name'] == "Crude Oil":
-                            driver = "Supply concerns mounting"
-                        else:
-                            driver = "Strong fundamentals"
-                    else:
-                        planet_info = f"Planetary influence positive"
-                        driver = "Technical breakout expected"
-                    
-                    st.markdown(f"""
-                        <div class="bullish-card">
-                            <h4>{item['name']}</h4>
-                            <p><strong>Action:</strong> GO LONG</p>
-                            <p><strong>Best Time:</strong> {optimal_time}</p>
-                            <p><strong>Confidence:</strong> {random.choice(['High', 'Medium'])}</p>
-                            <p><small>{driver}</small></p>
-                        </div>
-                    """, unsafe_allow_html=True)
-            
-            with col2:
-                st.markdown("#### 🔴 Bearish Warnings")
-                for i in range(bearish_count):
-                    item = random.choice(signal_items)
-                    optimal_time = f"{random.randint(9, 15)}:{random.choice(['00', '30'])}"
-                    
-                    if market_type == "Commodity":
-                        if item['name'] == "Gold":
-                            driver = "Dollar strength pressure"
-                        elif item['name'] == "Silver":
-                            driver = "Industrial demand concerns"
-                        elif item['name'] == "Crude Oil":
-                            driver = "Oversupply fears"
-                        else:
-                            driver = "Bearish sentiment"
-                    else:
-                        driver = "Technical breakdown risk"
-                    
-                    st.markdown(f"""
-                        <div class="bearish-card">
-                            <h4>{item['name']}</h4>
-                            <p><strong>Action:</strong> GO SHORT</p>
-                            <p><strong>Best Time:</strong> {optimal_time}</p>
-                            <p><strong>Confidence:</strong> {random.choice(['High', 'Medium'])}</p>
-                            <p><small>{driver}</small></p>
-                        </div>
-                    """, unsafe_allow_html=True)
-            
-            with col3:
-                st.markdown("#### 🟡 Neutral Zones")
-                for i in range(neutral_count):
-                    item = random.choice(signal_items)
-                    st.markdown(f"""
-                        <div class="neutral-card">
-                            <h4>{item['name']}</h4>
-                            <p><strong>Action:</strong> HOLD/WATCH</p>
-                            <p><strong>Status:</strong> Range-bound</p>
-                            <p><small>Await clear direction</small></p>
-                        </div>
-                    """, unsafe_allow_html=True)
-        
-        with tab2:
-            if market_type == "Indian":
-                st.markdown("### 🏭 Sector Analysis")
-                
-                sector_data = []
-                for sector in SECTORS:
-                    bias = random.choice(["BULLISH", "BEARISH", "NEUTRAL"])
-                    action = "BUY" if bias == "BULLISH" else "SELL" if bias == "BEARISH" else "HOLD"
-                    strength = random.randint(40, 90)
-                    
-                    sector_data.append({
-                        "Sector": sector["name"],
-                        "Ruling Planet": sector["rulingPlanet"],
-                        "Bias": bias,
-                        "Action": action,
-                        "Strength": f"{strength}%",
-                        "Best Symbol": random.choice(sector["symbols"])
-                    })
-                
-                df = pd.DataFrame(sector_data)
-                st.dataframe(df, use_container_width=True)
-                
-                # Sector strength chart
-                st.markdown("#### 📊 Sector Strength")
-                chart_data = pd.DataFrame({
-                    'Sector': [s['Sector'] for s in sector_data],
-                    'Strength': [int(s['Strength'].replace('%', '')) for s in sector_data]
-                })
-                st.bar_chart(chart_data.set_index('Sector'))
-                
-            elif market_type == "Commodity":
-                st.markdown("### 🥇 Commodity Analysis")
-                
-                commodity_data = []
-                for commodity in COMMODITIES[:5]:  # Gold, Silver, Crude Oil, Natural Gas, Copper
-                    bias = random.choice(["BULLISH", "BEARISH", "NEUTRAL"])
-                    action = "BUY" if bias == "BULLISH" else "SELL" if bias == "BEARISH" else "HOLD"
-                    strength = random.randint(40, 90)
-                    
-                    # Commodity-specific analysis
-                    if commodity["name"] == "Gold":
-                        analysis = "Safe haven demand + inflation hedge"
-                    elif commodity["name"] == "Silver":
-                        analysis = "Industrial demand + precious metal appeal"
-                    elif commodity["name"] == "Crude Oil":
-                        analysis = "Geopolitical tensions + supply dynamics"
-                    elif commodity["name"] == "Natural Gas":
-                        analysis = "Seasonal demand + storage levels"
-                    elif commodity["name"] == "Copper":
-                        analysis = "Industrial growth + infrastructure demand"
-                    else:
-                        analysis = "Global economic factors"
-                    
-                    commodity_data.append({
-                        "Commodity": commodity["name"],
-                        "Symbol": commodity["symbol"],
-                        "Ruling Planet": commodity["rulingPlanet"],
-                        "Bias": bias,
-                        "Action": action,
-                        "Strength": f"{strength}%",
-                        "Market Hours": commodity["market_hours"],
-                        "Key Driver": analysis
-                    })
-                
-                df = pd.DataFrame(commodity_data)
-                st.dataframe(df, use_container_width=True)
-                
-                # Commodity strength chart
-                st.markdown("#### 📊 Commodity Strength")
-                chart_data = pd.DataFrame({
-                    'Commodity': [c['Commodity'] for c in commodity_data],
-                    'Strength': [int(c['Strength'].replace('%', '')) for c in commodity_data]
-                })
-                st.bar_chart(chart_data.set_index('Commodity'))
-                
-            else:
-                st.markdown("### 📊 Market Analysis")
-                st.info(f"Analysis for {market_type} markets - {market_index}")
-                
-                # Generic market analysis for other types
-                market_data = []
-                sample_markets = markets[:5] if len(markets) > 5 else markets
-                
-                for market in sample_markets:
-                    bias = random.choice(["BULLISH", "BEARISH", "NEUTRAL"])
-                    action = "BUY" if bias == "BULLISH" else "SELL" if bias == "BEARISH" else "HOLD"
-                    strength = random.randint(40, 90)
-                    
-                    market_data.append({
-                        "Market": market,
-                        "Type": market_type,
-                        "Bias": bias,
-                        "Action": action,
-                        "Strength": f"{strength}%"
-                    })
-                
-                df = pd.DataFrame(market_data)
-                st.dataframe(df, use_container_width=True)
-                
-                # Market strength chart
-                st.markdown(f"#### 📊 {market_type} Market Strength")
-                chart_data = pd.DataFrame({
-                    'Market': [m['Market'] for m in market_data],
-                    'Strength': [int(m['Strength'].replace('%', '')) for m in market_data]
-                })
-                st.bar_chart(chart_data.set_index('Market'))
-        
-        with tab3:
-            st.markdown("### ⏰ Time Analysis")
-            
-            # Generate time slots
-            time_slots = []
-            current_time = datetime.combine(selected_date, start_time)
-            end_datetime = datetime.combine(selected_date, end_time)
-            
-            while current_time <= end_datetime:
-                time_slots.append(current_time.strftime("%H:%M"))
-                current_time += timedelta(minutes=45)
-            
-            time_data = []
-            sentiment_values = []
-            
-            for time_slot in time_slots:
-                impact = random.choice(["Bullish", "Bearish", "Neutral"])
-                confidence = random.choice(["High", "Medium", "Low"])
-                active_planets = random.sample([p["name"] for p in PLANETS], 3)
-                
-                time_data.append({
-                    "Time": time_slot,
-                    "Market Impact": impact,
-                    "Confidence": confidence,
-                    "Active Planets": ", ".join(active_planets),
-                    "Recommended Action": f"{'Buy' if impact == 'Bullish' else 'Sell' if impact == 'Bearish' else 'Hold'} {market_index}"
-                })
-                
-                sentiment_values.append(1 if impact == "Bullish" else -1 if impact == "Bearish" else 0)
-            
-            time_df = pd.DataFrame(time_data)
-            st.dataframe(time_df, use_container_width=True)
-            
-            # Market sentiment flow
-            st.markdown("#### 📈 Market Sentiment Flow")
-            sentiment_df = pd.DataFrame({
-                'Time': time_slots,
-                'Sentiment': sentiment_values
-            })
-            st.line_chart(sentiment_df.set_index('Time'))
-        
-        with tab4:
-            st.markdown("### 🪐 Planetary Details")
-            
-            # Planetary strength chart
-            st.markdown("#### 🌟 Planetary Strength")
-            planet_df = pd.DataFrame({
-                'Planet': [p.name for p in planetary_data],
-                'Strength': [p.strength for p in planetary_data]
-            })
-            st.bar_chart(planet_df.set_index('Planet'))
-            
-            # Detailed table
-            planet_table_data = []
-            for p in planetary_data:
-                planet_info = next(planet for planet in PLANETS if planet["name"] == p.name)
-                planet_table_data.append({
-                    "Planet": f"{p.name} {planet_info['symbol']}",
-                    "Sign": p.sign,
-                    "Nakshatra": p.nakshatra,
-                    "Pada": p.pada,
-                    "House": p.house,
-                    "Strength": f"{p.strength:.1f}%",
-                    "Status": "Retrograde" if p.retrograde else "Direct",
-                    "Key Aspects": ", ".join(p.aspects[:2]) if p.aspects else "None"
-                })
-            
-            planet_df = pd.DataFrame(planet_table_data)
-            st.dataframe(planet_df, use_container_width=True)
-        
-        with tab5:
-            st.markdown("### 💼 Trading Signals")
-            
-            # Generate trading signals
-            signals = []
-            if market_type == "Indian":
-                symbols = []
-                for sector in SECTORS[:5]:
-                    symbols.extend(sector["symbols"][:2])
-            elif market_type == "Commodity":
-                symbols = [c["symbol"] for c in COMMODITIES[:5]]  # Gold, Silver, Crude Oil, Natural Gas, Copper
-            else:
-                symbols = [c["symbol"] for c in COMMODITIES]
-            
-            for symbol in symbols:
-                bias = random.choice(["BULLISH", "BEARISH", "NEUTRAL"])
-                
-                # Set appropriate price format based on market type
-                if market_type == "Indian":
-                    price_prefix = "₹"
-                    price_range = (100, 5000)
-                elif market_type == "Commodity":
-                    if symbol in ["GOLD", "SILVER"]:
-                        price_prefix = "$"
-                        price_range = (1800, 2200) if symbol == "GOLD" else (22, 28)  # Gold per oz, Silver per oz
-                    elif symbol == "CRUDEOIL":
-                        price_prefix = "$"
-                        price_range = (70, 90)  # Crude per barrel
-                    elif symbol == "NATURALGAS":
-                        price_prefix = "$"
-                        price_range = (2, 6)  # Natural Gas per MMBtu
-                    elif symbol == "COPPER":
-                        price_prefix = "$"
-                        price_range = (3, 5)  # Copper per lb
-                    else:
-                        price_prefix = "$"
-                        price_range = (10, 500)
-                else:
-                    price_prefix = "$"
-                    price_range = (10, 500)
-                
-                signals.append({
-                    "Symbol": symbol,
-                    "Market Type": market_type,
-                    "Bias": bias,
-                    "Action": "BUY" if bias == "BULLISH" else "SELL" if bias == "BEARISH" else "HOLD",
-                    "Entry Price": f"{price_prefix}{random.uniform(price_range[0], price_range[1]):.2f}",
-                    "Target": f"{random.uniform(2, 8):.1f}%",
-                    "Stop Loss": f"{random.uniform(1, 4):.1f}%",
-                    "Confidence": random.choice(["High", "Medium", "Low"]),
-                    "Risk Level": random.choice(["Low", "Medium", "High"])
-                })
-            
-            signals_df = pd.DataFrame(signals)
-            st.dataframe(signals_df, use_container_width=True)
-            
-            # Download button
-            csv = signals_df.to_csv(index=False)
-            st.download_button(
-                label="📥 Download Signals CSV",
-                data=csv,
-                file_name=f"signals_{selected_date}.csv",
-                mime="text/csv"
-            )
-        
-        # Key Insights
-        st.markdown("## 🔍 Key Insights")
-        
-        strongest_planet = max(planetary_data, key=lambda x: x.strength)
-        retrograde_planets = [p.name for p in planetary_data if p.retrograde]
-        
-        insights = [
-            f"🌟 Strongest planetary influence: **{strongest_planet.name}** (Strength: {strongest_planet.strength:.1f}%)",
-            f"⚠️ Retrograde planets: **{', '.join(retrograde_planets) if retrograde_planets else 'None'}**",
-            f"🌙 Moon phase **{moon_phase}** suggests {'increased volatility' if 'Full' in moon_phase or 'New' in moon_phase else 'moderate stability'}",
-            f"⏰ Best trading hours: **{random.choice(['10:00-11:30', '13:00-14:30', '11:00-12:00'])}**",
-            f"🎯 Market sentiment: **{random.choice(['Cautiously Optimistic', 'Neutral with Bullish Bias', 'Mixed Signals'])}**"
-        ]
-        
-        for insight in insights:
-            st.markdown(f"• {insight}")
-        
-        # Special Alerts
-        st.markdown("## 🚨 Special Alerts")
-        alerts = [
-            "🌒 New Moon approaching - Expect volatility",
-            "♃ Jupiter aspect favorable for banking sector",
-            "♄ Saturn square Mars - Caution in metal stocks"
-        ]
-        
-        for alert in random.sample(alerts, 2):
-            st.warning(alert)
-        
-        # Disclaimer
-        st.markdown("---")
-        st.markdown("""
-            <div style="text-align: center; padding: 1rem; background-color: rgba(0,0,0,0.1); border-radius: 10px;">
-                <h4>⚠️ Important Disclaimer</h4>
-                <p>This analysis is for educational purposes only. Always consult qualified financial advisors 
-                before making investment decisions. Astrological predictions do not guarantee market outcomes.</p>
+            .planetary-positions {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .advanced-features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .feature-card {
+            background: rgba(22, 33, 62, 0.8);
+            border-radius: 15px;
+            padding: 25px;
+            border: 1px solid rgba(255, 179, 71, 0.2);
+            text-align: center;
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            background: linear-gradient(45deg, #ffd700, #ffb347);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🌟 Advanced Astrological Trading Platform</h1>
+            <p>Professional Market Analysis with Planetary Transits & Forecasting</p>
+            <div style="margin-top: 15px; color: #ffd700;">
+                <span id="currentDateTime"></span>
             </div>
-        """, unsafe_allow_html=True)
+        </header>
 
-# Default message
-if not hasattr(st.session_state, 'run_analysis'):
-    st.info("👈 Configure your analysis parameters in the sidebar and click 'Generate Analysis' to begin!")
-    
-    st.markdown("## 🌟 Welcome to Advanced Vedic Astro Trader Pro!")
-    st.markdown("""
-    This application combines ancient Vedic astrology with modern market analysis to provide:
-    
-    - **🪐 Planetary Position Analysis** - Real-time planetary strength calculations
-    - **📊 Sector-wise Predictions** - Industry-specific astrological insights
-    - **⏰ Intraday Time Analysis** - Optimal trading hours based on planetary periods
-    - **💼 Individual Stock Signals** - Specific buy/sell recommendations
-    - **⚠️ Risk Assessment** - Comprehensive risk evaluation using planetary influences
-    
-    **Features:**
-    - Support for Indian, Global, Commodity, Cryptocurrency, and Forex markets
-    - Multiple analysis depths from Quick to Deep Research
-    - Interactive charts and visualizations
-    - Downloadable trading signals
-    - Real-time planetary strength calculations
-    
-    Select your preferences in the sidebar to get started!
-    """)
+        <div class="dashboard">
+            <div class="control-panel">
+                <h2 class="section-title">⚙️ Analysis Controls</h2>
+                
+                <div class="input-grid">
+                    <div class="input-group">
+                        <label for="symbol">📈 Symbol/Index</label>
+                        <input type="text" id="symbol" value="NIFTY" placeholder="Enter symbol (e.g., NIFTY, BANKNIFTY, SENSEX)">
+                    </div>
+                    
+
+                    
+                    <div class="input-group">
+                        <label for="analysisType">🔮 Analysis Type</label>
+                        <select id="analysisType">
+                            <option value="monthly">Monthly Forecast</option>
+                            <option value="weekly">Weekly Analysis</option>
+                            <option value="daily">Daily Transits</option>
+                            <option value="annual">Annual Overview</option>
+                        </select>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="selectedMonth">📅 Select Month</label>
+                        <select id="selectedMonth">
+                            <option value="0">January 2025</option>
+                            <option value="1">February 2025</option>
+                            <option value="2">March 2025</option>
+                            <option value="3">April 2025</option>
+                            <option value="4">May 2025</option>
+                            <option value="5">June 2025</option>
+                            <option value="6">July 2025</option>
+                            <option value="7" selected>August 2025</option>
+                            <option value="8">September 2025</option>
+                            <option value="9">October 2025</option>
+                            <option value="10">November 2025</option>
+                            <option value="11">December 2025</option>
+                        </select>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="marketType">🏪 Market Type</label>
+                        <select id="marketType">
+                            <option value="equity">Equity</option>
+                            <option value="commodity">Commodity</option>
+                            <option value="currency">Currency</option>
+                            <option value="crypto">Cryptocurrency</option>
+                        </select>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="timeZone">🌍 Time Zone</label>
+                        <select id="timeZone">
+                            <option value="IST">IST (Indian Standard Time)</option>
+                            <option value="EST">EST (Eastern Standard Time)</option>
+                            <option value="GMT">GMT (Greenwich Mean Time)</option>
+                            <option value="JST">JST (Japan Standard Time)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 15px; flex-direction: column;">
+                    <button class="btn btn-primary" onclick="generateReport()">🚀 Generate Analysis</button>
+                    <button class="btn btn-secondary" onclick="exportReport()">📊 Export Report</button>
+                </div>
+            </div>
+
+            <div class="quick-stats">
+                <h2 class="section-title">📊 Quick Overview</h2>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3 id="marketSentiment">--</h3>
+                        <p>Market Sentiment</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="nextSignal">--</h3>
+                        <p>Next Major Signal</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="planetsActive">--</h3>
+                        <p>Active Transits</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="riskLevel">--</h3>
+                        <p>Risk Level</p>
+                    </div>
+                </div>
+
+                <div class="planetary-positions" id="planetaryPositions">
+                    <!-- Planetary positions will be populated here -->
+                </div>
+            </div>
+        </div>
+
+        <div class="report-container" id="reportContainer" style="display: none;">
+            <div class="report-header">
+                <h2>🌟 Astrological Market Analysis Report</h2>
+                <p id="reportSymbol">Symbol: NIFTY | Generated: <span id="reportTime"></span></p>
+            </div>
+
+            <div class="report-tabs">
+                <div class="tab active" onclick="showTab('forecast')">🔮 Monthly Forecast</div>
+                <div class="tab" onclick="showTab('transits')">🌙 Transit Analysis</div>
+                <div class="tab" onclick="showTab('signals')">📈 Trading Signals</div>
+                <div class="tab" onclick="showTab('correlation')">📊 Historical Correlation</div>
+            </div>
+
+            <div id="forecastTab" class="tab-content active">
+                <h3 style="color: #ffd700; margin-bottom: 20px;">📅 Monthly Planetary Transit Forecast</h3>
+                <div style="text-align: center; margin-bottom: 15px; color: #b8b8b8; font-size: 0.9rem; padding: 10px; background: rgba(255, 215, 0, 0.1); border-radius: 8px; border-left: 3px solid #ffd700;">
+                    <span id="forecastCount">Showing all daily forecasts for selected month</span> | 
+                    <span style="color: #ffd700;">📜 Scroll down to view all dates ⬇️</span>
+                </div>
+                <div class="forecast-grid" id="monthlyForecast">
+                    <!-- Monthly forecasts will be populated here -->
+                </div>
+            </div>
+
+            <div id="transitsTab" class="tab-content">
+                <h3 style="color: #ffd700; margin-bottom: 20px;">🌙 Detailed Transit Analysis</h3>
+                <div style="text-align: center; margin-bottom: 15px; color: #b8b8b8; font-size: 0.9rem; padding: 10px; background: rgba(255, 215, 0, 0.1); border-radius: 8px; border-left: 3px solid #ffd700;">
+                    <span id="transitCount">Complete daily transit data for selected month</span> | 
+                    <span style="color: #ffd700;">📜 Scroll table to view all dates ⬇️</span>
+                </div>
+                <div class="table-container">
+                    <table class="transit-table" id="transitTable">
+                        <thead>
+                            <tr>
+                                <th>Date & Time</th>
+                                <th>Planet</th>
+                                <th>Transit Event</th>
+                                <th>Market Impact</th>
+                                <th>% Change</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transitTableBody">
+                            <!-- Transit data will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="signalsTab" class="tab-content">
+                <h3 style="color: #ffd700; margin-bottom: 20px;">📈 Trading Signals & Recommendations</h3>
+                <div id="tradingSignals">
+                    <!-- Trading signals will be populated here -->
+                </div>
+            </div>
+
+            <div id="correlationTab" class="tab-content">
+                <h3 style="color: #ffd700; margin-bottom: 20px;">📊 Historical Planetary-Market Correlation</h3>
+                <div id="correlationAnalysis">
+                    <!-- Correlation analysis will be populated here -->
+                </div>
+            </div>
+        </div>
+
+        <div class="advanced-features">
+            <div class="feature-card">
+                <div class="feature-icon">🔮</div>
+                <h3>Predictive Modeling</h3>
+                <p>Advanced algorithms combining planetary movements with market psychology</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3>Real-time Updates</h3>
+                <p>Live planetary positions and instant market correlations</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3>Multi-timeframe Analysis</h3>
+                <p>From intraday to annual forecasting capabilities</p>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Calculating planetary positions and market correlations...</p>
+        </div>
+    </div>
+
+    <script>
+        // Global month names array - moved to top level to avoid temporal dead zone
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                           'July', 'August', 'September', 'October', 'November', 'December'];
+
+        // Planetary symbols and data
+        const PLANETS = {
+            sun: { symbol: '☉', name: 'Sun' },
+            moon: { symbol: '☽', name: 'Moon' },
+            mercury: { symbol: '☿', name: 'Mercury' },
+            venus: { symbol: '♀', name: 'Venus' },
+            mars: { symbol: '♂', name: 'Mars' },
+            jupiter: { symbol: '♃', name: 'Jupiter' },
+            saturn: { symbol: '♄', name: 'Saturn' },
+            uranus: { symbol: '♅', name: 'Uranus' },
+            neptune: { symbol: '♆', name: 'Neptune' },
+            pluto: { symbol: '♇', name: 'Pluto' }
+        };
+
+        const ZODIAC_SIGNS = [
+            { name: "♈ Aries", start: 0 },
+            { name: "♉ Taurus", start: 30 },
+            { name: "♊ Gemini", start: 60 },
+            { name: "♋ Cancer", start: 90 },
+            { name: "♌ Leo", start: 120 },
+            { name: "♍ Virgo", start: 150 },
+            { name: "♎ Libra", start: 180 },
+            { name: "♏ Scorpio", start: 210 },
+            { name: "♐ Sagittarius", start: 240 },
+            { name: "♑ Capricorn", start: 270 },
+            { name: "♒ Aquarius", start: 300 },
+            { name: "♓ Pisces", start: 330 }
+        ];
+
+        let currentData = {};
+
+        // Update current date and time
+        function updateDateTime() {
+            const now = new Date();
+            document.getElementById('currentDateTime').textContent = 
+                now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
+        }
+
+        // Calculate planetary positions (simplified calculation)
+        function calculatePlanetaryPositions(date) {
+            const positions = {};
+            const daysSince2000 = (date - new Date('2000-01-01')) / (1000 * 60 * 60 * 24);
+            
+            // Simplified orbital calculations
+            positions.sun = (280.460 + 0.9856474 * daysSince2000) % 360;
+            positions.moon = (218.316 + 13.176396 * daysSince2000) % 360;
+            positions.mercury = (252.250 + 4.092317 * daysSince2000) % 360;
+            positions.venus = (181.979 + 1.602130 * daysSince2000) % 360;
+            positions.mars = (355.433 + 0.524033 * daysSince2000) % 360;
+            positions.jupiter = (34.351 + 0.083091 * daysSince2000) % 360;
+            positions.saturn = (50.077 + 0.033494 * daysSince2000) % 360;
+            positions.uranus = (314.055 + 0.011733 * daysSince2000) % 360;
+            positions.neptune = (304.348 + 0.006020 * daysSince2000) % 360;
+            positions.pluto = (238.958 + 0.004028 * daysSince2000) % 360;
+            
+            return positions;
+        }
+
+        // Get zodiac sign from degree
+        function getZodiacSign(degree) {
+            const normalizedDegree = ((degree % 360) + 360) % 360;
+            for (let i = ZODIAC_SIGNS.length - 1; i >= 0; i--) {
+                if (normalizedDegree >= ZODIAC_SIGNS[i].start) {
+                    const signDegree = normalizedDegree - ZODIAC_SIGNS[i].start;
+                    return {
+                        sign: ZODIAC_SIGNS[i].name,
+                        degree: signDegree.toFixed(1)
+                    };
+                }
+            }
+            return { sign: ZODIAC_SIGNS[0].name, degree: normalizedDegree.toFixed(1) };
+        }
+
+        // Generate market impact based on planetary aspects
+        function calculateMarketImpact(planetPositions) {
+            const impacts = [];
+            const aspects = [];
+            
+            // Calculate major aspects between planets
+            const planetNames = Object.keys(planetPositions);
+            for (let i = 0; i < planetNames.length; i++) {
+                for (let j = i + 1; j < planetNames.length; j++) {
+                    const planet1 = planetNames[i];
+                    const planet2 = planetNames[j];
+                    const angle = Math.abs(planetPositions[planet1] - planetPositions[planet2]);
+                    const normalizedAngle = Math.min(angle, 360 - angle);
+                    
+                    // Major aspects: conjunction (0°), sextile (60°), square (90°), trine (120°), opposition (180°)
+                    const majorAspects = [0, 60, 90, 120, 180];
+                    const tolerance = 8; // degrees
+                    
+                    for (const aspectAngle of majorAspects) {
+                        if (Math.abs(normalizedAngle - aspectAngle) <= tolerance) {
+                            aspects.push({
+                                planet1: planet1,
+                                planet2: planet2,
+                                aspect: aspectAngle,
+                                strength: tolerance - Math.abs(normalizedAngle - aspectAngle)
+                            });
+                        }
+                    }
+                }
+            }
+            
+            return aspects;
+        }
+
+        // Real astronomical events for 2025 with daily aspects
+        const MONTHLY_ASTRONOMICAL_EVENTS_2025 = {
+            0: [ // January 2025
+                { date: 1, event: 'New Year - Mercury sextile Venus', aspect: 'Mercury ⚹ Venus', sentiment: 'bullish', change: '+1.2' },
+                { date: 3, event: 'Sun trine Jupiter', aspect: 'Sun △ Jupiter', sentiment: 'bullish', change: '+2.1' },
+                { date: 7, event: 'Venus square Mars', aspect: 'Venus □ Mars', sentiment: 'bearish', change: '-1.8' },
+                { date: 11, event: 'Lunar Nodes enter Pisces/Virgo', aspect: 'Nodes Ingress', sentiment: 'neutral', change: '±0.8' },
+                { date: 14, event: 'Mercury conjunct Saturn', aspect: 'Mercury ☌ Saturn', sentiment: 'bearish', change: '-1.5' },
+                { date: 18, event: 'Sun sextile Neptune', aspect: 'Sun ⚹ Neptune', sentiment: 'neutral', change: '+0.9' },
+                { date: 21, event: 'Mars trine Uranus', aspect: 'Mars △ Uranus', sentiment: 'bullish', change: '+2.3' },
+                { date: 25, event: 'Venus conjunct Jupiter', aspect: 'Venus ☌ Jupiter', sentiment: 'bullish', change: '+3.1' },
+                { date: 28, event: 'Mercury square Pluto', aspect: 'Mercury □ Pluto', sentiment: 'bearish', change: '-2.0' },
+                { date: 31, event: 'Sun opposition Mars', aspect: 'Sun ☍ Mars', sentiment: 'bearish', change: '-1.7' }
+            ],
+            1: [ // February 2025
+                { date: 2, event: 'Venus trine Saturn', aspect: 'Venus △ Saturn', sentiment: 'neutral', change: '+1.1' },
+                { date: 5, event: 'Mercury sextile Jupiter', aspect: 'Mercury ⚹ Jupiter', sentiment: 'bullish', change: '+1.9' },
+                { date: 9, event: 'Sun square Uranus', aspect: 'Sun □ Uranus', sentiment: 'bearish', change: '-2.2' },
+                { date: 12, event: 'Mars conjunct Neptune', aspect: 'Mars ☌ Neptune', sentiment: 'neutral', change: '±1.3' },
+                { date: 16, event: 'Venus opposition Pluto', aspect: 'Venus ☍ Pluto', sentiment: 'bearish', change: '-1.9' },
+                { date: 19, event: 'Sun trine Mars', aspect: 'Sun △ Mars', sentiment: 'bullish', change: '+2.4' },
+                { date: 22, event: 'Mercury square Neptune', aspect: 'Mercury □ Neptune', sentiment: 'bearish', change: '-1.6' },
+                { date: 25, event: 'Jupiter sextile Saturn', aspect: 'Jupiter ⚹ Saturn', sentiment: 'bullish', change: '+2.8' },
+                { date: 28, event: 'Venus trine Uranus', aspect: 'Venus △ Uranus', sentiment: 'bullish', change: '+2.1' }
+            ],
+            2: [ // March 2025
+                { date: 3, event: 'Mercury conjunct Venus', aspect: 'Mercury ☌ Venus', sentiment: 'bullish', change: '+1.7' },
+                { date: 7, event: 'Sun square Jupiter', aspect: 'Sun □ Jupiter', sentiment: 'bearish', change: '-1.4' },
+                { date: 11, event: 'Mars sextile Saturn', aspect: 'Mars ⚹ Saturn', sentiment: 'neutral', change: '+1.0' },
+                { date: 15, event: 'Venus square Uranus', aspect: 'Venus □ Uranus', sentiment: 'bearish', change: '-1.8' },
+                { date: 19, event: 'Sun conjunct Mercury', aspect: 'Sun ☌ Mercury', sentiment: 'neutral', change: '+0.7' },
+                { date: 22, event: 'Jupiter trine Neptune', aspect: 'Jupiter △ Neptune', sentiment: 'bullish', change: '+3.2' },
+                { date: 26, event: 'Mars opposition Venus', aspect: 'Mars ☍ Venus', sentiment: 'bearish', change: '-2.1' },
+                { date: 30, event: 'Neptune enters Aries', aspect: 'Neptune Ingress', sentiment: 'bullish', change: '+2.1' }
+            ],
+            3: [ // April 2025
+                { date: 2, event: 'Mercury trine Mars', aspect: 'Mercury △ Mars', sentiment: 'bullish', change: '+1.9' },
+                { date: 6, event: 'Venus sextile Neptune', aspect: 'Venus ⚹ Neptune', sentiment: 'neutral', change: '+1.2' },
+                { date: 10, event: 'Sun square Saturn', aspect: 'Sun □ Saturn', sentiment: 'bearish', change: '-2.0' },
+                { date: 14, event: 'Mars conjunct Jupiter', aspect: 'Mars ☌ Jupiter', sentiment: 'bullish', change: '+2.7' },
+                { date: 18, event: 'Mercury opposition Uranus', aspect: 'Mercury ☍ Uranus', sentiment: 'bearish', change: '-1.5' },
+                { date: 21, event: 'Venus square Saturn', aspect: 'Venus □ Saturn', sentiment: 'bearish', change: '-1.8' },
+                { date: 25, event: 'Sun trine Neptune', aspect: 'Sun △ Neptune', sentiment: 'bullish', change: '+2.3' },
+                { date: 29, event: 'Jupiter sextile Uranus', aspect: 'Jupiter ⚹ Uranus', sentiment: 'bullish', change: '+2.9' }
+            ],
+            4: [ // May 2025
+                { date: 3, event: 'Mercury square Jupiter', aspect: 'Mercury □ Jupiter', sentiment: 'bearish', change: '-1.6' },
+                { date: 7, event: 'Venus trine Mars', aspect: 'Venus △ Mars', sentiment: 'bullish', change: '+2.2' },
+                { date: 11, event: 'Sun sextile Uranus', aspect: 'Sun ⚹ Uranus', sentiment: 'bullish', change: '+1.8' },
+                { date: 15, event: 'Mars square Neptune', aspect: 'Mars □ Neptune', sentiment: 'bearish', change: '-2.1' },
+                { date: 18, event: 'Jupiter squares Lunar Nodes', aspect: 'Jupiter □ Nodes', sentiment: 'neutral', change: '±1.5' },
+                { date: 22, event: 'Venus opposition Jupiter', aspect: 'Venus ☍ Jupiter', sentiment: 'bearish', change: '-1.9' },
+                { date: 24, event: 'Saturn enters Aries', aspect: 'Saturn Ingress', sentiment: 'bearish', change: '-1.8' },
+                { date: 28, event: 'Mercury conjunct Neptune', aspect: 'Mercury ☌ Neptune', sentiment: 'neutral', change: '+0.9' },
+                { date: 31, event: 'Sun square Mars', aspect: 'Sun □ Mars', sentiment: 'bearish', change: '-2.3' }
+            ],
+            5: [ // June 2025
+                { date: 4, event: 'Venus sextile Saturn', aspect: 'Venus ⚹ Saturn', sentiment: 'neutral', change: '+1.1' },
+                { date: 8, event: 'Mercury trine Uranus', aspect: 'Mercury △ Uranus', sentiment: 'bullish', change: '+2.0' },
+                { date: 9, event: 'Jupiter enters Cancer', aspect: 'Jupiter Ingress', sentiment: 'bullish', change: '+3.2' },
+                { date: 12, event: 'Sun opposition Neptune', aspect: 'Sun ☍ Neptune', sentiment: 'bearish', change: '-1.7' },
+                { date: 16, event: 'Mars sextile Jupiter', aspect: 'Mars ⚹ Jupiter', sentiment: 'bullish', change: '+2.4' },
+                { date: 20, event: 'Venus square Pluto', aspect: 'Venus □ Pluto', sentiment: 'bearish', change: '-2.0' },
+                { date: 24, event: 'Jupiter cazimi', aspect: 'Jupiter ☌ Sun', sentiment: 'bullish', change: '+3.1' },
+                { date: 27, event: 'Mercury square Saturn', aspect: 'Mercury □ Saturn', sentiment: 'bearish', change: '-1.4' },
+                { date: 30, event: 'Sun trine Jupiter', aspect: 'Sun △ Jupiter', sentiment: 'bullish', change: '+2.8' }
+            ],
+            6: [ // July 2025
+                { date: 3, event: 'Venus conjunct Mercury', aspect: 'Venus ☌ Mercury', sentiment: 'bullish', change: '+1.6' },
+                { date: 7, event: 'Uranus enters Gemini', aspect: 'Uranus Ingress', sentiment: 'bullish', change: '+2.8' },
+                { date: 11, event: 'Mars opposition Saturn', aspect: 'Mars ☍ Saturn', sentiment: 'bearish', change: '-2.4' },
+                { date: 15, event: 'Sun square Uranus', aspect: 'Sun □ Uranus', sentiment: 'bearish', change: '-1.9' },
+                { date: 17, event: 'Mercury Retrograde begins', aspect: 'Mercury Rx', sentiment: 'bearish', change: '-1.5' },
+                { date: 21, event: 'Venus trine Neptune', aspect: 'Venus △ Neptune', sentiment: 'neutral', change: '+1.3' },
+                { date: 25, event: 'Jupiter sextile Mars', aspect: 'Jupiter ⚹ Mars', sentiment: 'bullish', change: '+2.5' },
+                { date: 29, event: 'Sun conjunct Venus', aspect: 'Sun ☌ Venus', sentiment: 'bullish', change: '+2.1' }
+            ],
+            7: [ // August 2025
+                { date: 2, event: 'Mercury square Jupiter', aspect: 'Mercury □ Jupiter', sentiment: 'bearish', change: '-1.7' },
+                { date: 6, event: 'Mars trine Neptune', aspect: 'Mars △ Neptune', sentiment: 'neutral', change: '+1.4' },
+                { date: 10, event: 'Venus opposition Uranus', aspect: 'Venus ☍ Uranus', sentiment: 'bearish', change: '-2.2' },
+                { date: 11, event: 'Mercury Direct', aspect: 'Mercury Direct', sentiment: 'bullish', change: '+1.9' },
+                { date: 15, event: 'Sun sextile Jupiter', aspect: 'Sun ⚹ Jupiter', sentiment: 'bullish', change: '+2.3' },
+                { date: 19, event: 'Mars square Pluto', aspect: 'Mars □ Pluto', sentiment: 'bearish', change: '-2.1' },
+                { date: 23, event: 'Venus trine Saturn', aspect: 'Venus △ Saturn', sentiment: 'neutral', change: '+1.2' },
+                { date: 27, event: 'Jupiter opposition Saturn', aspect: 'Jupiter ☍ Saturn', sentiment: 'bearish', change: '-2.5' },
+                { date: 31, event: 'Sun square Mars', aspect: 'Sun □ Mars', sentiment: 'bearish', change: '-1.8' }
+            ],
+            8: [ // September 2025
+                { date: 4, event: 'Mars squares Jupiter', aspect: 'Mars □ Jupiter', sentiment: 'bearish', change: '-2.3' },
+                { date: 7, event: 'Total Lunar Eclipse in Pisces', aspect: 'Lunar Eclipse', sentiment: 'neutral', change: '±2.3' },
+                { date: 11, event: 'Venus sextile Mars', aspect: 'Venus ⚹ Mars', sentiment: 'bullish', change: '+1.8' },
+                { date: 13, event: 'Mercury cazimi', aspect: 'Mercury ☌ Sun', sentiment: 'neutral', change: '+1.1' },
+                { date: 17, event: 'Jupiter trine Uranus', aspect: 'Jupiter △ Uranus', sentiment: 'bullish', change: '+2.9' },
+                { date: 21, event: 'Partial Solar Eclipse in Virgo', aspect: 'Solar Eclipse', sentiment: 'bullish', change: '+1.6' },
+                { date: 24, event: 'Mars squares Pluto', aspect: 'Mars □ Pluto', sentiment: 'bearish', change: '-2.4' },
+                { date: 28, event: 'Venus opposition Neptune', aspect: 'Venus ☍ Neptune', sentiment: 'bearish', change: '-1.5' }
+            ],
+            9: [ // October 2025
+                { date: 2, event: 'Mercury trine Jupiter', aspect: 'Mercury △ Jupiter', sentiment: 'bullish', change: '+2.2' },
+                { date: 6, event: 'Sun square Saturn', aspect: 'Sun □ Saturn', sentiment: 'bearish', change: '-1.9' },
+                { date: 10, event: 'Mars sextile Venus', aspect: 'Mars ⚹ Venus', sentiment: 'bullish', change: '+1.7' },
+                { date: 14, event: 'Jupiter opposition Pluto', aspect: 'Jupiter ☍ Pluto', sentiment: 'bearish', change: '-2.1' },
+                { date: 18, event: 'Venus square Jupiter', aspect: 'Venus □ Jupiter', sentiment: 'bearish', change: '-1.6' },
+                { date: 22, event: 'Neptune Rx enters Pisces', aspect: 'Neptune Ingress', sentiment: 'neutral', change: '±1.2' },
+                { date: 26, event: 'Sun trine Mars', aspect: 'Sun △ Mars', sentiment: 'bullish', change: '+2.4' },
+                { date: 30, event: 'Mercury conjunct Saturn', aspect: 'Mercury ☌ Saturn', sentiment: 'bearish', change: '-1.8' }
+            ],
+            10: [ // November 2025
+                { date: 4, event: 'Mars opposes Uranus', aspect: 'Mars ☍ Uranus', sentiment: 'bearish', change: '-2.6' },
+                { date: 7, event: 'Uranus Rx enters Taurus', aspect: 'Uranus Ingress', sentiment: 'bearish', change: '-2.1' },
+                { date: 9, event: 'Mercury Retrograde begins', aspect: 'Mercury Rx', sentiment: 'bearish', change: '-1.3' },
+                { date: 13, event: 'Venus trine Jupiter', aspect: 'Venus △ Jupiter', sentiment: 'bullish', change: '+2.7' },
+                { date: 17, event: 'Sun sextile Neptune', aspect: 'Sun ⚹ Neptune', sentiment: 'neutral', change: '+1.0' },
+                { date: 20, event: 'Mercury cazimi', aspect: 'Mercury ☌ Sun', sentiment: 'neutral', change: '+0.8' },
+                { date: 24, event: 'Mars square Neptune', aspect: 'Mars □ Neptune', sentiment: 'bearish', change: '-1.9' },
+                { date: 29, event: 'Mercury Direct', aspect: 'Mercury Direct', sentiment: 'bullish', change: '+2.0' }
+            ],
+            11: [ // December 2025
+                { date: 3, event: 'Venus opposition Mars', aspect: 'Venus ☍ Mars', sentiment: 'bearish', change: '-2.0' },
+                { date: 7, event: 'Jupiter sextile Saturn', aspect: 'Jupiter ⚹ Saturn', sentiment: 'bullish', change: '+2.3' },
+                { date: 8, event: 'Mars squares Saturn', aspect: 'Mars □ Saturn', sentiment: 'bearish', change: '-2.5' },
+                { date: 12, event: 'Sun trine Uranus', aspect: 'Sun △ Uranus', sentiment: 'bullish', change: '+2.1' },
+                { date: 14, event: 'Mars squares Neptune', aspect: 'Mars □ Neptune', sentiment: 'bearish', change: '-2.2' },
+                { date: 18, event: 'Venus conjunct Jupiter', aspect: 'Venus ☌ Jupiter', sentiment: 'bullish', change: '+3.0' },
+                { date: 22, event: 'Mercury sextile Mars', aspect: 'Mercury ⚹ Mars', sentiment: 'bullish', change: '+1.8' },
+                { date: 26, event: 'Sun square Jupiter', aspect: 'Sun □ Jupiter', sentiment: 'bearish', change: '-1.7' },
+                { date: 31, event: 'Year End - Venus trine Saturn', aspect: 'Venus △ Saturn', sentiment: 'neutral', change: '+1.1' }
+            ]
+        };
+
+        // Generate monthly forecast for selected month
+        function generateMonthlyForecast(symbol, selectedMonth) {
+            const forecasts = [];
+            const monthData = MONTHLY_ASTRONOMICAL_EVENTS_2025[selectedMonth] || [];
+            const year = 2025;
+            
+            // Get number of days in the selected month
+            const daysInMonth = new Date(year, selectedMonth + 1, 0).getDate();
+            
+            // Create a forecast for each day of the month
+            for (let day = 1; day <= daysInMonth; day++) {
+                const currentDate = new Date(year, selectedMonth, day);
+                
+                // Check if there's a specific astronomical event for this day
+                const dayEvent = monthData.find(event => event.date === day);
+                
+                if (dayEvent) {
+                    // Use the specific astronomical event
+                    forecasts.push({
+                        date: currentDate.toLocaleDateString(),
+                        day: day,
+                        event: dayEvent.event,
+                        aspect: dayEvent.aspect,
+                        sentiment: dayEvent.sentiment,
+                        change: dayEvent.change,
+                        impact: getImpactLevel(dayEvent.sentiment, dayEvent.change)
+                    });
+                } else {
+                    // Generate based on planetary positions
+                    const positions = calculatePlanetaryPositions(currentDate);
+                    const aspects = calculateMarketImpact(positions);
+                    
+                    let sentiment = 'neutral';
+                    let changePercent = (Math.random() - 0.5) * 1.5; // Small random change for non-event days
+                    let aspectName = 'Minor Transit';
+                    
+                    if (aspects.length > 0) {
+                        const strongestAspect = aspects.reduce((prev, current) => 
+                            (prev.strength > current.strength) ? prev : current
+                        );
+                        
+                        // Determine sentiment based on aspect
+                        if (strongestAspect.aspect === 120 || strongestAspect.aspect === 60) {
+                            sentiment = 'bullish';
+                            changePercent = Math.random() * 1.5 + 0.5;
+                            aspectName = `${PLANETS[strongestAspect.planet1]?.name || 'Planet'} ${strongestAspect.aspect === 120 ? '△' : '⚹'} ${PLANETS[strongestAspect.planet2]?.name || 'Planet'}`;
+                        } else if (strongestAspect.aspect === 90 || strongestAspect.aspect === 180) {
+                            sentiment = 'bearish';
+                            changePercent = -(Math.random() * 1.5 + 0.5);
+                            aspectName = `${PLANETS[strongestAspect.planet1]?.name || 'Planet'} ${strongestAspect.aspect === 90 ? '□' : '☍'} ${PLANETS[strongestAspect.planet2]?.name || 'Planet'}`;
+                        } else {
+                            aspectName = `${PLANETS[strongestAspect.planet1]?.name || 'Planet'} ☌ ${PLANETS[strongestAspect.planet2]?.name || 'Planet'}`;
+                        }
+                    }
+                    
+                    forecasts.push({
+                        date: currentDate.toLocaleDateString(),
+                        day: day,
+                        event: `Daily ${aspectName}`,
+                        aspect: aspectName,
+                        sentiment: sentiment,
+                        change: (changePercent > 0 ? '+' : '') + changePercent.toFixed(1),
+                        impact: getImpactLevel(sentiment, changePercent.toFixed(1))
+                    });
+                }
+            }
+            
+            return forecasts;
+        }
+        
+        // Helper function to determine impact level
+        function getImpactLevel(sentiment, changeStr) {
+            const change = Math.abs(parseFloat(changeStr));
+            if (sentiment === 'bullish') {
+                return change > 2.5 ? 'Very Strong Bullish' : change > 1.5 ? 'Strong Bullish' : 'Moderate Bullish';
+            } else if (sentiment === 'bearish') {
+                return change > 2.5 ? 'Very Strong Bearish' : change > 1.5 ? 'Strong Bearish' : 'Moderate Bearish';
+            } else {
+                return change > 1.5 ? 'Significant Neutral' : 'Moderate Neutral';
+            }
+        }
+
+        // Generate trading signals
+        function generateTradingSignals(forecasts) {
+            const signals = [];
+            
+            forecasts.forEach((forecast, index) => {
+                const change = parseFloat(forecast.change);
+                let signal = 'HOLD';
+                let confidence = 'Medium';
+                let reasoning = '';
+                
+                if (change > 2) {
+                    signal = 'BUY';
+                    confidence = change > 3 ? 'High' : 'Medium';
+                    reasoning = `Strong bullish planetary alignment. Expected upward movement of ${Math.abs(change).toFixed(1)}%`;
+                } else if (change < -2) {
+                    signal = 'SELL';
+                    confidence = change < -3 ? 'High' : 'Medium';
+                    reasoning = `Bearish planetary configuration. Expected downward movement of ${Math.abs(change).toFixed(1)}%`;
+                } else {
+                    reasoning = `Neutral planetary influence. Range-bound movement expected.`;
+                }
+                
+                signals.push({
+                    date: forecast.date,
+                    signal: signal,
+                    confidence: confidence,
+                    reasoning: reasoning,
+                    change: forecast.change
+                });
+            });
+            
+            return signals;
+        }
+
+        // Show/hide tabs
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab content and mark tab as active
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // Generate comprehensive report
+        function generateReport() {
+            const symbol = document.getElementById('symbol').value || 'NIFTY';
+            const selectedMonth = parseInt(document.getElementById('selectedMonth').value);
+            
+            // Show loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('reportContainer').style.display = 'none';
+            
+            setTimeout(() => {
+                // Update planetary positions
+                const currentDate = new Date();
+                const planetPositions = calculatePlanetaryPositions(currentDate);
+                
+                // Update planetary display
+                const planetaryContainer = document.getElementById('planetaryPositions');
+                planetaryContainer.innerHTML = '';
+                
+                Object.keys(PLANETS).forEach(planetKey => {
+                    const position = planetPositions[planetKey];
+                    const zodiacInfo = getZodiacSign(position);
+                    
+                    const planetCard = document.createElement('div');
+                    planetCard.className = 'planet-card';
+                    planetCard.innerHTML = `
+                        <div class="planet-symbol">${PLANETS[planetKey].symbol}</div>
+                        <div class="planet-degree">${position.toFixed(1)}°</div>
+                        <div class="planet-sign">${zodiacInfo.sign}</div>
+                    `;
+                    planetaryContainer.appendChild(planetCard);
+                });
+                
+                // Generate monthly forecast for selected month
+                const forecasts = generateMonthlyForecast(symbol, selectedMonth);
+                const signals = generateTradingSignals(forecasts);
+                
+                // Update monthly forecast tab (show ALL entries with scroll)
+                const forecastContainer = document.getElementById('monthlyForecast');
+                forecastContainer.innerHTML = '';
+                
+                forecasts.forEach(forecast => {
+                    const forecastCard = document.createElement('div');
+                    forecastCard.className = 'forecast-card';
+                    forecastCard.innerHTML = `
+                        <div class="forecast-date">${forecast.date}</div>
+                        <div class="forecast-event">${forecast.event}</div>
+                        <div class="forecast-impact ${forecast.sentiment}">${forecast.impact}</div>
+                        <div style="margin-top: 10px; color: #b8b8b8;">
+                            Expected Change: ${forecast.change}%
+                        </div>
+                    `;
+                    forecastContainer.appendChild(forecastCard);
+                });
+                
+                // Update forecast count
+                document.getElementById('forecastCount').textContent = 
+                    `Showing all ${forecasts.length} daily forecasts for ${monthNames[selectedMonth]} 2025`;
+                
+                // Update transit table (show ALL entries with scroll)
+                const transitTableBody = document.getElementById('transitTableBody');
+                transitTableBody.innerHTML = '';
+                
+                forecasts.forEach(forecast => {
+                    const row = transitTableBody.insertRow();
+                    row.innerHTML = `
+                        <td>${forecast.date}</td>
+                        <td>♃ ${forecast.aspect.split(' ')[0] || 'Jupiter'}</td>
+                        <td>${forecast.event}</td>
+                        <td><span class="forecast-impact ${forecast.sentiment}">${forecast.impact}</span></td>
+                        <td>${forecast.change}%</td>
+                        <td><span class="signal-indicator ${forecast.sentiment === 'bullish' ? 'buy' : forecast.sentiment === 'bearish' ? 'sell' : 'hold'}-signal">
+                            ${forecast.sentiment === 'bullish' ? 'BUY' : forecast.sentiment === 'bearish' ? 'SELL' : 'HOLD'}
+                        </span></td>
+                    `;
+                });
+                
+                // Update transit count
+                document.getElementById('transitCount').textContent = 
+                    `Complete daily transit data for ${monthNames[selectedMonth]} 2025 (${forecasts.length} days)`;
+                
+                // Update trading signals - Show complete month data in organized format
+                const signalsContainer = document.getElementById('tradingSignals');
+                
+                signalsContainer.innerHTML = `
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="color: #ffd700; margin-bottom: 15px;">📊 Complete ${monthNames[selectedMonth]} 2025 Daily Analysis</h4>
+                        <div class="daily-signals-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px;">
+                            ${forecasts.map(forecast => `
+                                <div class="daily-signal-card" style="background: rgba(255, 255, 255, 0.05); border-radius: 10px; padding: 15px; border-left: 4px solid ${
+                                    forecast.sentiment === 'bullish' ? '#4caf50' : 
+                                    forecast.sentiment === 'bearish' ? '#f44336' : '#ff9800'
+                                };">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                        <span style="font-weight: 600; color: #ffd700;">${monthNames[selectedMonth]} ${forecast.day}</span>
+                                        <span class="signal-indicator ${forecast.sentiment === 'bullish' ? 'buy' : forecast.sentiment === 'bearish' ? 'sell' : 'hold'}-signal" style="font-size: 0.7rem; padding: 3px 8px;">
+                                            ${forecast.sentiment === 'bullish' ? 'BUY' : forecast.sentiment === 'bearish' ? 'SELL' : 'HOLD'}
+                                        </span>
+                                    </div>
+                                    <div style="font-size: 0.9rem; color: #e0e0e0; margin-bottom: 8px;">${forecast.aspect}</div>
+                                    <div style="font-size: 0.85rem; color: #b8b8b8; margin-bottom: 8px;">${forecast.event}</div>
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span style="font-size: 1.1rem; font-weight: 600; color: ${
+                                            forecast.change.includes('+') ? '#4caf50' : 
+                                            forecast.change.includes('-') ? '#f44336' : '#ff9800'
+                                        };">${forecast.change}%</span>
+                                        <span style="font-size: 0.8rem; color: #888;">${forecast.sentiment.toUpperCase()}</span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+                
+                // Update correlation analysis
+                const correlationContainer = document.getElementById('correlationAnalysis');
+                correlationContainer.innerHTML = `
+                    <div class="forecast-grid">
+                        <div class="forecast-card">
+                            <div class="forecast-date">Jupiter Transits</div>
+                            <div class="forecast-event">85% Bullish Correlation</div>
+                            <div class="forecast-impact bullish">Strong Positive</div>
+                            <div style="margin-top: 10px; color: #b8b8b8;">
+                                Historical data shows Jupiter transits correlate with major bull runs
+                            </div>
+                        </div>
+                        <div class="forecast-card">
+                            <div class="forecast-date">Saturn Aspects</div>
+                            <div class="forecast-event">72% Bearish Correlation</div>
+                            <div class="forecast-impact bearish">Moderate Negative</div>
+                            <div style="margin-top: 10px; color: #b8b8b8;">
+                                Saturn squares often precede market corrections
+                            </div>
+                        </div>
+                        <div class="forecast-card">
+                            <div class="forecast-date">Mercury Retrograde</div>
+                            <div class="forecast-event">65% Volatility Increase</div>
+                            <div class="forecast-impact neutral">High Volatility</div>
+                            <div style="margin-top: 10px; color: #b8b8b8;">
+                                Increased intraday volatility during retrograde periods
+                            </div>
+                        </div>
+                        <div class="forecast-card">
+                            <div class="forecast-date">Full Moon Cycles</div>
+                            <div class="forecast-event">78% Trend Reversal</div>
+                            <div class="forecast-impact neutral">Reversal Signal</div>
+                            <div style="margin-top: 10px; color: #b8b8b8;">
+                                Full moons often mark important trend reversals
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Update quick stats
+                const bullishCount = forecasts.filter(f => f.sentiment === 'bullish').length;
+                const bearishCount = forecasts.filter(f => f.sentiment === 'bearish').length;
+                
+                document.getElementById('marketSentiment').textContent = 
+                    bullishCount > bearishCount ? 'BULLISH' : bearishCount > bullishCount ? 'BEARISH' : 'NEUTRAL';
+                document.getElementById('nextSignal').textContent = signals[0]?.signal || 'HOLD';
+                document.getElementById('planetsActive').textContent = Object.keys(planetPositions).length;
+                document.getElementById('riskLevel').textContent = 
+                    bearishCount > 15 ? 'HIGH' : bearishCount > 10 ? 'MEDIUM' : 'LOW';
+                
+                // Update report header
+                document.getElementById('reportSymbol').innerHTML = 
+                    `Symbol: ${symbol} | Month: ${monthNames[selectedMonth]} 2025 | Generated: ${new Date().toLocaleString()}`;
+                
+                // Store current data
+                currentData = { symbol, selectedMonth, forecasts, signals, planetPositions };
+                
+                // Hide loading and show results
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('reportContainer').style.display = 'block';
+                
+                // Smooth scroll to results
+                document.getElementById('reportContainer').scrollIntoView({ 
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }, 2000);
+        }
+
+        // Export report functionality
+        function exportReport() {
+            if (!currentData.forecasts) {
+                alert('Please generate a report first');
+                return;
+            }
+            
+            let csvContent = 'Date,Day,Event,Planetary Aspect,Sentiment,Change %,Impact Level\n';
+            currentData.forecasts.forEach(forecast => {
+                csvContent += `${forecast.date},${forecast.day || ''},${forecast.event},${forecast.aspect || ''},${forecast.sentiment},${forecast.change},${forecast.impact}\n`;
+            });
+            
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('hidden', '');
+            a.setAttribute('href', url);
+            a.setAttribute('download', `astro-trading-report-${currentData.symbol}-${monthNames[currentData.selectedMonth] || 'monthly'}-${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+        
+        // Auto-update when month selection changes
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('selectedMonth').addEventListener('change', function() {
+                if (currentData.forecasts) {
+                    generateReport();
+                }
+            });
+        });
+
+        // Initialize
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+        
+        // Auto-generate initial report
+        setTimeout(() => {
+            generateReport();
+        }, 1000);
+    </script>
+</body>
+</html>
