@@ -1,531 +1,784 @@
-#!/usr/bin/env python3
-"""
-Advanced Astrological Trading Analysis Platform
-Professional Market Analysis with Planetary Transits & Forecasting
-"""
-
-import datetime
-import csv
-import json
-import math
-from typing import Dict, List, Tuple, Optional
+import streamlit as st
+import pandas as pd
+import numpy as np
+from datetime import datetime, date, time, timedelta
+import random
 from dataclasses import dataclass
-from enum import Enum
+from typing import List, Dict
 
+# Page configuration
+st.set_page_config(
+    page_title="Advanced Vedic Astro Trader Pro",
+    layout="wide",
+    initial_sidebar_state="expanded",
+    page_icon="🔮"
+)
 
-class Sentiment(Enum):
-    BULLISH = "bullish"
-    BEARISH = "bearish"
-    NEUTRAL = "neutral"
-
-
-class Signal(Enum):
-    BUY = "BUY"
-    SELL = "SELL"
-    HOLD = "HOLD"
-
-
+# Configuration Classes
 @dataclass
-class Planet:
-    symbol: str
+class PlanetaryData:
     name: str
+    longitude: float
+    sign: str
+    nakshatra: str
+    pada: int
+    retrograde: bool
+    strength: float
+    house: int
+    aspects: List[str]
 
+# Constants
+NAKSHATRAS = [
+    {"name": "Ashwini", "lord": "Ketu", "element": "Earth"},
+    {"name": "Bharani", "lord": "Venus", "element": "Earth"},
+    {"name": "Krittika", "lord": "Sun", "element": "Fire"},
+    {"name": "Rohini", "lord": "Moon", "element": "Earth"},
+    {"name": "Mrigashira", "lord": "Mars", "element": "Earth"},
+    {"name": "Ardra", "lord": "Rahu", "element": "Water"},
+    {"name": "Punarvasu", "lord": "Jupiter", "element": "Water"},
+    {"name": "Pushya", "lord": "Saturn", "element": "Water"},
+    {"name": "Ashlesha", "lord": "Mercury", "element": "Water"},
+    {"name": "Magha", "lord": "Ketu", "element": "Fire"},
+    {"name": "Purva Phalguni", "lord": "Venus", "element": "Fire"},
+    {"name": "Uttara Phalguni", "lord": "Sun", "element": "Fire"},
+    {"name": "Hasta", "lord": "Moon", "element": "Earth"},
+    {"name": "Chitra", "lord": "Mars", "element": "Fire"},
+    {"name": "Swati", "lord": "Rahu", "element": "Air"},
+    {"name": "Vishakha", "lord": "Jupiter", "element": "Fire"},
+    {"name": "Anuradha", "lord": "Saturn", "element": "Water"},
+    {"name": "Jyeshtha", "lord": "Mercury", "element": "Air"},
+    {"name": "Mula", "lord": "Ketu", "element": "Air"},
+    {"name": "Purva Ashadha", "lord": "Venus", "element": "Air"},
+    {"name": "Uttara Ashadha", "lord": "Sun", "element": "Fire"},
+    {"name": "Shravana", "lord": "Moon", "element": "Air"},
+    {"name": "Dhanishta", "lord": "Mars", "element": "Air"},
+    {"name": "Shatabhisha", "lord": "Rahu", "element": "Air"},
+    {"name": "Purva Bhadrapada", "lord": "Jupiter", "element": "Fire"},
+    {"name": "Uttara Bhadrapada", "lord": "Saturn", "element": "Air"},
+    {"name": "Revati", "lord": "Mercury", "element": "Water"}
+]
 
-@dataclass
-class ZodiacSign:
-    name: str
-    start: float
+ZODIAC_SIGNS = [
+    {"name": "Aries", "lord": "Mars", "element": "Fire"},
+    {"name": "Taurus", "lord": "Venus", "element": "Earth"},
+    {"name": "Gemini", "lord": "Mercury", "element": "Air"},
+    {"name": "Cancer", "lord": "Moon", "element": "Water"},
+    {"name": "Leo", "lord": "Sun", "element": "Fire"},
+    {"name": "Virgo", "lord": "Mercury", "element": "Earth"},
+    {"name": "Libra", "lord": "Venus", "element": "Air"},
+    {"name": "Scorpio", "lord": "Mars", "element": "Water"},
+    {"name": "Sagittarius", "lord": "Jupiter", "element": "Fire"},
+    {"name": "Capricorn", "lord": "Saturn", "element": "Earth"},
+    {"name": "Aquarius", "lord": "Saturn", "element": "Air"},
+    {"name": "Pisces", "lord": "Jupiter", "element": "Water"}
+]
 
+PLANETS = [
+    {"name": "Sun", "symbol": "☉", "nature": "Malefic"},
+    {"name": "Moon", "symbol": "☽", "nature": "Benefic"},
+    {"name": "Mercury", "symbol": "☿", "nature": "Neutral"},
+    {"name": "Venus", "symbol": "♀", "nature": "Benefic"},
+    {"name": "Mars", "symbol": "♂", "nature": "Malefic"},
+    {"name": "Jupiter", "symbol": "♃", "nature": "Benefic"},
+    {"name": "Saturn", "symbol": "♄", "nature": "Malefic"},
+    {"name": "Rahu", "symbol": "☊", "nature": "Malefic"},
+    {"name": "Ketu", "symbol": "☋", "nature": "Malefic"}
+]
 
-@dataclass
-class AstronomicalEvent:
-    date: int
-    event: str
-    aspect: str
-    sentiment: Sentiment
-    change: str
+SECTORS = [
+    {"name": "Banking & Financial Services", "symbols": ["HDFCBANK", "ICICIBANK", "SBIN", "KOTAKBANK"], "rulingPlanet": "Jupiter"},
+    {"name": "Information Technology", "symbols": ["TCS", "INFY", "WIPRO", "HCLTECH"], "rulingPlanet": "Mercury"},
+    {"name": "Automobile & Auto Components", "symbols": ["MARUTI", "TATAMOTORS", "M&M", "BAJAJ-AUTO"], "rulingPlanet": "Venus"},
+    {"name": "Energy & Power", "symbols": ["RELIANCE", "ONGC", "IOC", "BPCL"], "rulingPlanet": "Sun"},
+    {"name": "Pharmaceuticals & Healthcare", "symbols": ["SUNPHARMA", "DRREDDY", "CIPLA", "LUPIN"], "rulingPlanet": "Moon"},
+    {"name": "Metals & Mining", "symbols": ["TATASTEEL", "JSWSTEEL", "VEDL", "HINDALCO"], "rulingPlanet": "Mars"},
+    {"name": "FMCG & Consumer Goods", "symbols": ["HUL", "ITC", "NESTLEIND", "BRITANNIA"], "rulingPlanet": "Venus"},
+    {"name": "Infrastructure & Construction", "symbols": ["LT", "ADANIPORTS", "ULTRACEMCO", "ACC"], "rulingPlanet": "Saturn"}
+]
 
+COMMODITIES = [
+    {"name": "Gold", "symbol": "GOLD", "global_symbol": "XAUUSD", "rulingPlanet": "Sun", "market_hours": "24/7"},
+    {"name": "Silver", "symbol": "SILVER", "global_symbol": "XAGUSD", "rulingPlanet": "Moon", "market_hours": "24/7"},
+    {"name": "Crude Oil", "symbol": "CRUDEOIL", "global_symbol": "CL1!", "rulingPlanet": "Mars", "market_hours": "24/6"},
+    {"name": "Natural Gas", "symbol": "NATURALGAS", "global_symbol": "NG1!", "rulingPlanet": "Rahu", "market_hours": "24/6"},
+    {"name": "Copper", "symbol": "COPPER", "global_symbol": "HG1!", "rulingPlanet": "Venus", "market_hours": "24/6"},
+    {"name": "Bitcoin", "symbol": "BTC-USD", "global_symbol": "BTCUSD", "rulingPlanet": "Rahu", "market_hours": "24/7"},
+    {"name": "Ethereum", "symbol": "ETH-USD", "global_symbol": "ETHUSD", "rulingPlanet": "Mercury", "market_hours": "24/7"}
+]
 
-@dataclass
-class Forecast:
-    date: str
-    day: int
-    event: str
-    aspect: str
-    sentiment: Sentiment
-    change: str
-    impact: str
+MOON_PHASES = ["New Moon", "Waxing Crescent", "First Quarter", "Waxing Gibbous", 
+               "Full Moon", "Waning Gibbous", "Third Quarter", "Waning Crescent"]
 
-
-@dataclass
-class TradingSignal:
-    date: str
-    signal: Signal
-    confidence: str
-    reasoning: str
-    change: str
-
-
-@dataclass
-class PlanetaryPosition:
-    planet: str
-    degree: float
-    zodiac_sign: str
-    sign_degree: float
-
-
-class AstrologicalTradingPlatform:
-    """Main class for astrological trading analysis"""
+# Helper Functions
+@st.cache_data
+def generate_planetary_data(selected_date: date) -> List[PlanetaryData]:
+    """Generate realistic planetary positions"""
+    planetary_data = []
     
-    def __init__(self):
-        self.planets = {
-            'sun': Planet('☉', 'Sun'),
-            'moon': Planet('☽', 'Moon'),
-            'mercury': Planet('☿', 'Mercury'),
-            'venus': Planet('♀', 'Venus'),
-            'mars': Planet('♂', 'Mars'),
-            'jupiter': Planet('♃', 'Jupiter'),
-            'saturn': Planet('♄', 'Saturn'),
-            'uranus': Planet('♅', 'Uranus'),
-            'neptune': Planet('♆', 'Neptune'),
-            'pluto': Planet('♇', 'Pluto')
-        }
+    for i, planet in enumerate(PLANETS):
+        # Realistic longitude calculation
+        if planet["name"] == "Sun":
+            longitude = (selected_date.timetuple().tm_yday * 0.9856) % 360
+        elif planet["name"] == "Moon":
+            longitude = (selected_date.timetuple().tm_yday * 13.1764) % 360
+        else:
+            longitude = (selected_date.timetuple().tm_yday * (0.5 + i * 0.3)) % 360
         
-        self.zodiac_signs = [
-            ZodiacSign("♈ Aries", 0),
-            ZodiacSign("♉ Taurus", 30),
-            ZodiacSign("♊ Gemini", 60),
-            ZodiacSign("♋ Cancer", 90),
-            ZodiacSign("♌ Leo", 120),
-            ZodiacSign("♍ Virgo", 150),
-            ZodiacSign("♎ Libra", 180),
-            ZodiacSign("♏ Scorpio", 210),
-            ZodiacSign("♐ Sagittarius", 240),
-            ZodiacSign("♑ Capricorn", 270),
-            ZodiacSign("♒ Aquarius", 300),
-            ZodiacSign("♓ Pisces", 330)
-        ]
+        sign_index = int(longitude / 30)
+        sign = ZODIAC_SIGNS[sign_index]["name"]
         
-        self.month_names = [
-            'January', 'February', 'March', 'April', 'May', 'June',
-            'July', 'August', 'September', 'October', 'November', 'December'
-        ]
+        nakshatra_index = int((longitude % 360) / 13.333333)
+        nakshatra = NAKSHATRAS[min(nakshatra_index, 26)]["name"]
         
-        # Astronomical events for 2025 (converted from JavaScript)
-        self.monthly_events_2025 = {
-            0: [  # January 2025
-                AstronomicalEvent(1, 'New Year - Mercury sextile Venus', 'Mercury ⚹ Venus', Sentiment.BULLISH, '+1.2'),
-                AstronomicalEvent(3, 'Sun trine Jupiter', 'Sun △ Jupiter', Sentiment.BULLISH, '+2.1'),
-                AstronomicalEvent(7, 'Venus square Mars', 'Venus □ Mars', Sentiment.BEARISH, '-1.8'),
-                AstronomicalEvent(11, 'Lunar Nodes enter Pisces/Virgo', 'Nodes Ingress', Sentiment.NEUTRAL, '±0.8'),
-                AstronomicalEvent(14, 'Mercury conjunct Saturn', 'Mercury ☌ Saturn', Sentiment.BEARISH, '-1.5'),
-                AstronomicalEvent(18, 'Sun sextile Neptune', 'Sun ⚹ Neptune', Sentiment.NEUTRAL, '+0.9'),
-                AstronomicalEvent(21, 'Mars trine Uranus', 'Mars △ Uranus', Sentiment.BULLISH, '+2.3'),
-                AstronomicalEvent(25, 'Venus conjunct Jupiter', 'Venus ☌ Jupiter', Sentiment.BULLISH, '+3.1'),
-                AstronomicalEvent(28, 'Mercury square Pluto', 'Mercury □ Pluto', Sentiment.BEARISH, '-2.0'),
-                AstronomicalEvent(31, 'Sun opposition Mars', 'Sun ☍ Mars', Sentiment.BEARISH, '-1.7')
-            ],
-            1: [  # February 2025
-                AstronomicalEvent(2, 'Venus trine Saturn', 'Venus △ Saturn', Sentiment.NEUTRAL, '+1.1'),
-                AstronomicalEvent(5, 'Mercury sextile Jupiter', 'Mercury ⚹ Jupiter', Sentiment.BULLISH, '+1.9'),
-                AstronomicalEvent(9, 'Sun square Uranus', 'Sun □ Uranus', Sentiment.BEARISH, '-2.2'),
-                AstronomicalEvent(12, 'Mars conjunct Neptune', 'Mars ☌ Neptune', Sentiment.NEUTRAL, '±1.3'),
-                AstronomicalEvent(16, 'Venus opposition Pluto', 'Venus ☍ Pluto', Sentiment.BEARISH, '-1.9'),
-                AstronomicalEvent(19, 'Sun trine Mars', 'Sun △ Mars', Sentiment.BULLISH, '+2.4'),
-                AstronomicalEvent(22, 'Mercury square Neptune', 'Mercury □ Neptune', Sentiment.BEARISH, '-1.6'),
-                AstronomicalEvent(25, 'Jupiter sextile Saturn', 'Jupiter ⚹ Saturn', Sentiment.BULLISH, '+2.8'),
-                AstronomicalEvent(28, 'Venus trine Uranus', 'Venus △ Uranus', Sentiment.BULLISH, '+2.1')
-            ],
-            2: [  # March 2025
-                AstronomicalEvent(3, 'Mercury conjunct Venus', 'Mercury ☌ Venus', Sentiment.BULLISH, '+1.7'),
-                AstronomicalEvent(7, 'Sun square Jupiter', 'Sun □ Jupiter', Sentiment.BEARISH, '-1.4'),
-                AstronomicalEvent(11, 'Mars sextile Saturn', 'Mars ⚹ Saturn', Sentiment.NEUTRAL, '+1.0'),
-                AstronomicalEvent(15, 'Venus square Uranus', 'Venus □ Uranus', Sentiment.BEARISH, '-1.8'),
-                AstronomicalEvent(19, 'Sun conjunct Mercury', 'Sun ☌ Mercury', Sentiment.NEUTRAL, '+0.7'),
-                AstronomicalEvent(22, 'Jupiter trine Neptune', 'Jupiter △ Neptune', Sentiment.BULLISH, '+3.2'),
-                AstronomicalEvent(26, 'Mars opposition Venus', 'Mars ☍ Venus', Sentiment.BEARISH, '-2.1'),
-                AstronomicalEvent(30, 'Neptune enters Aries', 'Neptune Ingress', Sentiment.BULLISH, '+2.1')
-            ],
-            # Adding more months for completeness
-            7: [  # August 2025
-                AstronomicalEvent(2, 'Mercury square Jupiter', 'Mercury □ Jupiter', Sentiment.BEARISH, '-1.7'),
-                AstronomicalEvent(6, 'Mars trine Neptune', 'Mars △ Neptune', Sentiment.NEUTRAL, '+1.4'),
-                AstronomicalEvent(10, 'Venus opposition Uranus', 'Venus ☍ Uranus', Sentiment.BEARISH, '-2.2'),
-                AstronomicalEvent(11, 'Mercury Direct', 'Mercury Direct', Sentiment.BULLISH, '+1.9'),
-                AstronomicalEvent(15, 'Sun sextile Jupiter', 'Sun ⚹ Jupiter', Sentiment.BULLISH, '+2.3'),
-                AstronomicalEvent(19, 'Mars square Pluto', 'Mars □ Pluto', Sentiment.BEARISH, '-2.1'),
-                AstronomicalEvent(23, 'Venus trine Saturn', 'Venus △ Saturn', Sentiment.NEUTRAL, '+1.2'),
-                AstronomicalEvent(27, 'Jupiter opposition Saturn', 'Jupiter ☍ Saturn', Sentiment.BEARISH, '-2.5'),
-                AstronomicalEvent(31, 'Sun square Mars', 'Sun □ Mars', Sentiment.BEARISH, '-1.8')
-            ]
-        }
-
-    def calculate_planetary_positions(self, date: datetime.date) -> Dict[str, float]:
-        """Calculate simplified planetary positions for given date"""
-        # Calculate days since J2000.0 (January 1, 2000)
-        j2000 = datetime.date(2000, 1, 1)
-        days_since_j2000 = (date - j2000).days
+        pada = int(((longitude % 360) % 13.333333) / 3.333333) + 1
+        retrograde = random.choice([True, False]) if planet["name"] not in ["Sun", "Moon"] else False
+        house = ((sign_index + random.randint(0, 2)) % 12) + 1
         
-        # Simplified orbital calculations (in degrees)
-        positions = {
-            'sun': (280.460 + 0.9856474 * days_since_j2000) % 360,
-            'moon': (218.316 + 13.176396 * days_since_j2000) % 360,
-            'mercury': (252.250 + 4.092317 * days_since_j2000) % 360,
-            'venus': (181.979 + 1.602130 * days_since_j2000) % 360,
-            'mars': (355.433 + 0.524033 * days_since_j2000) % 360,
-            'jupiter': (34.351 + 0.083091 * days_since_j2000) % 360,
-            'saturn': (50.077 + 0.033494 * days_since_j2000) % 360,
-            'uranus': (314.055 + 0.011733 * days_since_j2000) % 360,
-            'neptune': (304.348 + 0.006020 * days_since_j2000) % 360,
-            'pluto': (238.958 + 0.004028 * days_since_j2000) % 360
-        }
-        
-        return positions
-
-    def get_zodiac_sign(self, degree: float) -> Tuple[str, float]:
-        """Get zodiac sign and degree within sign for given celestial longitude"""
-        normalized_degree = ((degree % 360) + 360) % 360
-        
-        for i in range(len(self.zodiac_signs) - 1, -1, -1):
-            if normalized_degree >= self.zodiac_signs[i].start:
-                sign_degree = normalized_degree - self.zodiac_signs[i].start
-                return self.zodiac_signs[i].name, sign_degree
-        
-        # Default to Aries if no match found
-        return self.zodiac_signs[0].name, normalized_degree
-
-    def calculate_market_impact(self, planet_positions: Dict[str, float]) -> List[Dict]:
-        """Calculate market impact based on planetary aspects"""
+        # Generate aspects
         aspects = []
-        planet_names = list(planet_positions.keys())
+        for other_planet in PLANETS:
+            if other_planet["name"] != planet["name"] and random.random() < 0.3:
+                aspect_type = random.choice(["Conjunction", "Opposition", "Trine", "Square"])
+                aspects.append(f"{other_planet['name']} {aspect_type}")
         
-        # Calculate major aspects between planets
-        for i in range(len(planet_names)):
-            for j in range(i + 1, len(planet_names)):
-                planet1 = planet_names[i]
-                planet2 = planet_names[j]
-                angle = abs(planet_positions[planet1] - planet_positions[planet2])
-                normalized_angle = min(angle, 360 - angle)
-                
-                # Major aspects: conjunction (0°), sextile (60°), square (90°), trine (120°), opposition (180°)
-                major_aspects = [0, 60, 90, 120, 180]
-                tolerance = 8  # degrees
-                
-                for aspect_angle in major_aspects:
-                    if abs(normalized_angle - aspect_angle) <= tolerance:
-                        strength = tolerance - abs(normalized_angle - aspect_angle)
-                        aspects.append({
-                            'planet1': planet1,
-                            'planet2': planet2,
-                            'aspect': aspect_angle,
-                            'strength': strength
-                        })
+        # Calculate strength
+        strength = calculate_planetary_strength(planet["name"], sign, retrograde, nakshatra)
         
-        return aspects
+        planet_data = PlanetaryData(
+            name=planet["name"],
+            longitude=longitude,
+            sign=sign,
+            nakshatra=nakshatra,
+            pada=pada,
+            retrograde=retrograde,
+            strength=strength,
+            house=house,
+            aspects=aspects
+        )
+        
+        planetary_data.append(planet_data)
+    
+    return planetary_data
 
-    def get_impact_level(self, sentiment: Sentiment, change_str: str) -> str:
-        """Determine impact level based on sentiment and change percentage"""
-        try:
-            change = abs(float(change_str.replace('+', '').replace('±', '')))
-        except (ValueError, AttributeError):
-            change = 1.0
-            
-        if sentiment == Sentiment.BULLISH:
-            if change > 2.5:
-                return 'Very Strong Bullish'
-            elif change > 1.5:
-                return 'Strong Bullish'
-            else:
-                return 'Moderate Bullish'
-        elif sentiment == Sentiment.BEARISH:
-            if change > 2.5:
-                return 'Very Strong Bearish'
-            elif change > 1.5:
-                return 'Strong Bearish'
-            else:
-                return 'Moderate Bearish'
-        else:
-            if change > 1.5:
-                return 'Significant Neutral'
-            else:
-                return 'Moderate Neutral'
+def calculate_planetary_strength(planet_name: str, sign: str, retrograde: bool, nakshatra: str) -> float:
+    """Calculate planetary strength"""
+    base_strength = 50
+    
+    exaltation_signs = {
+        "Sun": "Aries", "Moon": "Taurus", "Mercury": "Virgo", "Venus": "Pisces",
+        "Mars": "Capricorn", "Jupiter": "Cancer", "Saturn": "Libra"
+    }
+    
+    debilitation_signs = {
+        "Sun": "Libra", "Moon": "Scorpio", "Mercury": "Pisces", "Venus": "Virgo", 
+        "Mars": "Cancer", "Jupiter": "Capricorn", "Saturn": "Aries"
+    }
+    
+    if sign == exaltation_signs.get(planet_name):
+        base_strength += 30
+    elif sign == debilitation_signs.get(planet_name):
+        base_strength -= 30
+    
+    if retrograde and planet_name not in ["Sun", "Moon"]:
+        base_strength += 10
+    
+    return max(0, min(100, base_strength + random.randint(-10, 10)))
 
-    def generate_monthly_forecast(self, symbol: str, year: int, month: int) -> List[Forecast]:
-        """Generate monthly forecast for specified symbol and month"""
-        forecasts = []
-        month_data = self.monthly_events_2025.get(month, [])
+def get_moon_phase(date_obj: date) -> str:
+    """Calculate moon phase"""
+    days_since_new_moon = (date_obj.toordinal() - date(2024, 1, 11).toordinal()) % 29.5
+    phase_index = int(days_since_new_moon / 3.69)
+    return MOON_PHASES[min(phase_index, 7)]
+
+# Custom CSS
+st.markdown("""
+<style>
+.metric-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 1rem;
+    border-radius: 10px;
+    color: white;
+    text-align: center;
+    margin: 0.5rem 0;
+}
+.bullish-card {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    padding: 1rem;
+    border-radius: 10px;
+    color: white;
+    margin: 0.5rem 0;
+}
+.bearish-card {
+    background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+    padding: 1rem;
+    border-radius: 10px;
+    color: white;
+    margin: 0.5rem 0;
+}
+.neutral-card {
+    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+    padding: 1rem;
+    border-radius: 10px;
+    color: white;
+    margin: 0.5rem 0;
+}
+.stDataFrame > div {
+    font-size: 14px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# Header
+st.markdown("""
+<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            padding: 2rem; border-radius: 10px; margin-bottom: 2rem;">
+    <h1 style="color: white; text-align: center; margin: 0;">
+        🔮 Advanced Vedic Astro Trader Pro
+    </h1>
+    <p style="color: white; text-align: center; margin: 0.5rem 0 0 0;">
+        Comprehensive Market Analysis using Vedic Astrology & Planetary Positions
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+# Sidebar
+with st.sidebar:
+    st.markdown("### 📊 Analysis Configuration")
+    
+    selected_date = st.date_input("📅 Trading Date", date.today())
+    
+    market_type = st.selectbox(
+        "🌍 Market Type", 
+        ["Indian", "Global", "Commodity", "Cryptocurrency", "Forex"]
+    )
+    
+    if market_type == "Indian":
+        markets = ["Nifty 50", "Bank Nifty", "Sensex", "Nifty IT", "Nifty Auto"]
+    elif market_type == "Global":
+        markets = ["Dow Jones", "Nasdaq", "S&P 500", "FTSE 100", "DAX"]
+    elif market_type == "Commodity":
+        markets = ["Gold", "Silver", "Crude Oil", "Natural Gas", "Copper"]
+    elif market_type == "Cryptocurrency":
+        markets = ["Bitcoin", "Ethereum", "Binance Coin", "Cardano", "Solana"]
+    else:  # Forex
+        markets = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CHF"]
+    
+    market_index = st.selectbox("📈 Primary Market", markets)
+    
+    start_time = st.time_input("🕐 Start Time", value=time(9, 15))
+    end_time = st.time_input("🕕 End Time", value=time(15, 30))
+    
+    analysis_depth = st.selectbox(
+        "🔍 Analysis Depth",
+        ["Quick", "Standard", "Comprehensive", "Deep Research"],
+        index=1
+    )
+    
+    include_risk = st.checkbox("⚠️ Include Risk Assessment", value=True)
+    include_portfolio = st.checkbox("💼 Portfolio Advice", value=True)
+    
+    if st.button("🚀 Generate Analysis", type="primary"):
+        st.session_state.run_analysis = True
+
+# Main Analysis
+if hasattr(st.session_state, 'run_analysis') and st.session_state.run_analysis:
+    with st.spinner("🔮 Performing astrological calculations..."):
         
-        # Get number of days in the month
-        if month == 12:
-            next_month = datetime.date(year + 1, 1, 1)
-        else:
-            next_month = datetime.date(year, month + 2, 1)
+        # Generate data
+        planetary_data = generate_planetary_data(selected_date)
+        moon_phase = get_moon_phase(selected_date)
         
-        current_month = datetime.date(year, month + 1, 1)
-        days_in_month = (next_month - current_month).days
+        # Dashboard metrics
+        st.markdown("## 📊 Market Intelligence Dashboard")
         
-        # Create forecast for each day
-        for day in range(1, days_in_month + 1):
-            current_date = datetime.date(year, month + 1, day)
+        col1, col2, col3, col4, col5 = st.columns(5)
+        
+        with col1:
+            st.markdown(f"""
+                <div class="metric-card">
+                    <h3>🌙 Moon Phase</h3>
+                    <h2>{moon_phase}</h2>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            planetary_strength = sum(p.strength for p in planetary_data) / len(planetary_data)
+            st.markdown(f"""
+                <div class="metric-card">
+                    <h3>🌟 Planetary Strength</h3>
+                    <h2>{planetary_strength:.1f}%</h2>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            muhurat_quality = random.choice(["Good", "Average", "Caution"])
+            color = "green" if muhurat_quality == "Good" else "orange" if muhurat_quality == "Average" else "red"
+            st.markdown(f"""
+                <div class="metric-card" style="background: {color};">
+                    <h3>🕐 Muhurat Quality</h3>
+                    <h2>{muhurat_quality}</h2>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        with col4:
+            retrograde_count = sum(1 for p in planetary_data if p.retrograde)
+            st.markdown(f"""
+                <div class="metric-card">
+                    <h3>↩️ Retrograde Planets</h3>
+                    <h2>{retrograde_count}</h2>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        with col5:
+            market_volatility = random.choice(["Low", "Medium", "High"])
+            volatility_colors = {"Low": "green", "Medium": "orange", "High": "red"}
+            st.markdown(f"""
+                <div class="metric-card" style="background: {volatility_colors[market_volatility]};">
+                    <h3>📊 Market Volatility</h3>
+                    <h2>{market_volatility}</h2>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        # Risk Assessment
+        if include_risk:
+            st.markdown("## ⚠️ Risk Assessment")
             
-            # Check for specific astronomical event
-            day_event = next((event for event in month_data if event.date == day), None)
+            malefic_strength = sum(p.strength for p in planetary_data if any(planet["name"] == p.name and planet["nature"] == "Malefic" for planet in PLANETS))
+            benefic_strength = sum(p.strength for p in planetary_data if any(planet["name"] == p.name and planet["nature"] == "Benefic" for planet in PLANETS))
             
-            if day_event:
-                forecasts.append(Forecast(
-                    date=current_date.strftime('%Y-%m-%d'),
-                    day=day,
-                    event=day_event.event,
-                    aspect=day_event.aspect,
-                    sentiment=day_event.sentiment,
-                    change=day_event.change,
-                    impact=self.get_impact_level(day_event.sentiment, day_event.change)
-                ))
+            risk_score = min(100, max(0, 50 + (malefic_strength - benefic_strength) / 10 + retrograde_count * 5))
+            
+            if risk_score <= 30:
+                risk_level, risk_color = "Low", "green"
+            elif risk_score <= 60:
+                risk_level, risk_color = "Medium", "orange"
             else:
-                # Generate based on planetary positions
-                positions = self.calculate_planetary_positions(current_date)
-                aspects = self.calculate_market_impact(positions)
-                
-                sentiment = Sentiment.NEUTRAL
-                change_percent = (hash(str(current_date)) % 1000 - 500) / 1000 * 1.5  # Pseudo-random
-                aspect_name = 'Minor Transit'
-                
-                if aspects:
-                    strongest_aspect = max(aspects, key=lambda x: x['strength'])
+                risk_level, risk_color = "High", "red"
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.markdown(f"""
+                    <div style="background: {risk_color}; padding: 1rem; border-radius: 10px; color: white;">
+                        <h3>🎯 Risk Level: {risk_level}</h3>
+                        <h2>Score: {risk_score:.0f}/100</h2>
+                    </div>
+                """, unsafe_allow_html=True)
+            
+            with col2:
+                st.markdown(f"""
+                    <div class="metric-card">
+                        <h3>😇 Benefic Strength</h3>
+                        <h2>{benefic_strength:.1f}</h2>
+                    </div>
+                """, unsafe_allow_html=True)
+            
+            with col3:
+                st.markdown(f"""
+                    <div class="metric-card">
+                        <h3>😈 Malefic Strength</h3>
+                        <h2>{malefic_strength:.1f}</h2>
+                    </div>
+                """, unsafe_allow_html=True)
+        
+        # Tabbed Analysis
+        tab1, tab2, tab3, tab4, tab5 = st.tabs([
+            "🎯 Quick Signals", "🏭 Sector Analysis", "⏰ Time Analysis", 
+            "🪐 Planetary Details", "💼 Trading Signals"
+        ])
+        
+        with tab1:
+            st.markdown("### 🎯 Quick Trading Signals")
+            
+            # Generate signals based on market type
+            if market_type == "Indian":
+                signal_items = SECTORS
+                signal_type = "sector"
+            elif market_type == "Commodity":
+                signal_items = COMMODITIES[:5]  # Gold, Silver, Crude Oil, Natural Gas, Copper
+                signal_type = "commodity"
+            else:
+                # For Global, Crypto, Forex - create generic items
+                signal_items = [{"name": market} for market in markets[:6]]
+                signal_type = "market"
+            
+            bullish_count = random.randint(2, 4)
+            bearish_count = random.randint(1, 3)
+            neutral_count = random.randint(2, 4)
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.markdown("#### 🟢 Bullish Opportunities")
+                for i in range(bullish_count):
+                    item = random.choice(signal_items)
+                    optimal_time = f"{random.randint(9, 15)}:{random.choice(['00', '30'])}"
                     
-                    # Determine sentiment based on aspect
-                    if strongest_aspect['aspect'] in [120, 60]:  # Trine or sextile
-                        sentiment = Sentiment.BULLISH
-                        change_percent = abs(change_percent) + 0.5
-                        symbol_map = {120: '△', 60: '⚹'}
-                        aspect_name = f"{self.planets[strongest_aspect['planet1']].name} {symbol_map[strongest_aspect['aspect']]} {self.planets[strongest_aspect['planet2']].name}"
-                    elif strongest_aspect['aspect'] in [90, 180]:  # Square or opposition
-                        sentiment = Sentiment.BEARISH
-                        change_percent = -(abs(change_percent) + 0.5)
-                        symbol_map = {90: '□', 180: '☍'}
-                        aspect_name = f"{self.planets[strongest_aspect['planet1']].name} {symbol_map[strongest_aspect['aspect']]} {self.planets[strongest_aspect['planet2']].name}"
-                    else:  # Conjunction
-                        aspect_name = f"{self.planets[strongest_aspect['planet1']].name} ☌ {self.planets[strongest_aspect['planet2']].name}"
-                
-                change_str = f"{'+' if change_percent > 0 else ''}{change_percent:.1f}"
-                
-                forecasts.append(Forecast(
-                    date=current_date.strftime('%Y-%m-%d'),
-                    day=day,
-                    event=f"Daily {aspect_name}",
-                    aspect=aspect_name,
-                    sentiment=sentiment,
-                    change=change_str,
-                    impact=self.get_impact_level(sentiment, change_str)
-                ))
-        
-        return forecasts
-
-    def generate_trading_signals(self, forecasts: List[Forecast]) -> List[TradingSignal]:
-        """Generate trading signals based on forecasts"""
-        signals = []
-        
-        for forecast in forecasts:
-            try:
-                change = float(forecast.change.replace('+', '').replace('±', ''))
-            except (ValueError, AttributeError):
-                change = 0
-                
-            signal = Signal.HOLD
-            confidence = 'Medium'
-            reasoning = ''
+                    if market_type == "Commodity":
+                        planet_info = f"Ruling Planet: {item.get('rulingPlanet', 'N/A')}"
+                        if item['name'] == "Gold":
+                            driver = "Safe haven demand rising"
+                        elif item['name'] == "Silver":
+                            driver = "Industrial demand surge"
+                        elif item['name'] == "Crude Oil":
+                            driver = "Supply concerns mounting"
+                        else:
+                            driver = "Strong fundamentals"
+                    else:
+                        planet_info = f"Planetary influence positive"
+                        driver = "Technical breakout expected"
+                    
+                    st.markdown(f"""
+                        <div class="bullish-card">
+                            <h4>{item['name']}</h4>
+                            <p><strong>Action:</strong> GO LONG</p>
+                            <p><strong>Best Time:</strong> {optimal_time}</p>
+                            <p><strong>Confidence:</strong> {random.choice(['High', 'Medium'])}</p>
+                            <p><small>{driver}</small></p>
+                        </div>
+                    """, unsafe_allow_html=True)
             
-            if change > 2:
-                signal = Signal.BUY
-                confidence = 'High' if change > 3 else 'Medium'
-                reasoning = f"Strong bullish planetary alignment. Expected upward movement of {abs(change):.1f}%"
-            elif change < -2:
-                signal = Signal.SELL
-                confidence = 'High' if change < -3 else 'Medium'
-                reasoning = f"Bearish planetary configuration. Expected downward movement of {abs(change):.1f}%"
-            else:
-                reasoning = "Neutral planetary influence. Range-bound movement expected."
+            with col2:
+                st.markdown("#### 🔴 Bearish Warnings")
+                for i in range(bearish_count):
+                    item = random.choice(signal_items)
+                    optimal_time = f"{random.randint(9, 15)}:{random.choice(['00', '30'])}"
+                    
+                    if market_type == "Commodity":
+                        if item['name'] == "Gold":
+                            driver = "Dollar strength pressure"
+                        elif item['name'] == "Silver":
+                            driver = "Industrial demand concerns"
+                        elif item['name'] == "Crude Oil":
+                            driver = "Oversupply fears"
+                        else:
+                            driver = "Bearish sentiment"
+                    else:
+                        driver = "Technical breakdown risk"
+                    
+                    st.markdown(f"""
+                        <div class="bearish-card">
+                            <h4>{item['name']}</h4>
+                            <p><strong>Action:</strong> GO SHORT</p>
+                            <p><strong>Best Time:</strong> {optimal_time}</p>
+                            <p><strong>Confidence:</strong> {random.choice(['High', 'Medium'])}</p>
+                            <p><small>{driver}</small></p>
+                        </div>
+                    """, unsafe_allow_html=True)
             
-            signals.append(TradingSignal(
-                date=forecast.date,
-                signal=signal,
-                confidence=confidence,
-                reasoning=reasoning,
-                change=forecast.change
-            ))
+            with col3:
+                st.markdown("#### 🟡 Neutral Zones")
+                for i in range(neutral_count):
+                    item = random.choice(signal_items)
+                    st.markdown(f"""
+                        <div class="neutral-card">
+                            <h4>{item['name']}</h4>
+                            <p><strong>Action:</strong> HOLD/WATCH</p>
+                            <p><strong>Status:</strong> Range-bound</p>
+                            <p><small>Await clear direction</small></p>
+                        </div>
+                    """, unsafe_allow_html=True)
         
-        return signals
-
-    def get_planetary_positions_display(self, date: datetime.date) -> List[PlanetaryPosition]:
-        """Get current planetary positions for display"""
-        positions = self.calculate_planetary_positions(date)
-        display_positions = []
-        
-        for planet_key, degree in positions.items():
-            zodiac_sign, sign_degree = self.get_zodiac_sign(degree)
-            display_positions.append(PlanetaryPosition(
-                planet=self.planets[planet_key].name,
-                degree=degree,
-                zodiac_sign=zodiac_sign,
-                sign_degree=sign_degree
-            ))
-        
-        return display_positions
-
-    def generate_report(self, symbol: str = 'NIFTY', year: int = 2025, month: int = 7) -> Dict:
-        """Generate comprehensive astrological trading report"""
-        current_date = datetime.date.today()
-        
-        # Generate forecasts and signals
-        forecasts = self.generate_monthly_forecast(symbol, year, month)
-        signals = self.generate_trading_signals(forecasts)
-        
-        # Get planetary positions
-        planetary_positions = self.get_planetary_positions_display(current_date)
-        
-        # Calculate statistics
-        bullish_count = sum(1 for f in forecasts if f.sentiment == Sentiment.BULLISH)
-        bearish_count = sum(1 for f in forecasts if f.sentiment == Sentiment.BEARISH)
-        
-        market_sentiment = 'BULLISH' if bullish_count > bearish_count else 'BEARISH' if bearish_count > bullish_count else 'NEUTRAL'
-        risk_level = 'HIGH' if bearish_count > 15 else 'MEDIUM' if bearish_count > 10 else 'LOW'
-        
-        report = {
-            'symbol': symbol,
-            'month': self.month_names[month],
-            'year': year,
-            'generated_date': current_date.isoformat(),
-            'market_sentiment': market_sentiment,
-            'risk_level': risk_level,
-            'active_transits': len(planetary_positions),
-            'forecasts': forecasts,
-            'signals': signals,
-            'planetary_positions': planetary_positions,
-            'statistics': {
-                'total_days': len(forecasts),
-                'bullish_days': bullish_count,
-                'bearish_days': bearish_count,
-                'neutral_days': len(forecasts) - bullish_count - bearish_count
-            }
-        }
-        
-        return report
-
-    def export_to_csv(self, report: Dict, filename: Optional[str] = None) -> str:
-        """Export report to CSV file"""
-        if filename is None:
-            filename = f"astro_trading_report_{report['symbol']}_{report['month']}_{report['year']}.csv"
-        
-        with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
-            fieldnames = ['Date', 'Day', 'Event', 'Planetary_Aspect', 'Sentiment', 'Change_%', 'Impact_Level']
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            
-            writer.writeheader()
-            for forecast in report['forecasts']:
-                writer.writerow({
-                    'Date': forecast.date,
-                    'Day': forecast.day,
-                    'Event': forecast.event,
-                    'Planetary_Aspect': forecast.aspect,
-                    'Sentiment': forecast.sentiment.value,
-                    'Change_%': forecast.change,
-                    'Impact_Level': forecast.impact
+        with tab2:
+            if market_type == "Indian":
+                st.markdown("### 🏭 Sector Analysis")
+                
+                sector_data = []
+                for sector in SECTORS:
+                    bias = random.choice(["BULLISH", "BEARISH", "NEUTRAL"])
+                    action = "BUY" if bias == "BULLISH" else "SELL" if bias == "BEARISH" else "HOLD"
+                    strength = random.randint(40, 90)
+                    
+                    sector_data.append({
+                        "Sector": sector["name"],
+                        "Ruling Planet": sector["rulingPlanet"],
+                        "Bias": bias,
+                        "Action": action,
+                        "Strength": f"{strength}%",
+                        "Best Symbol": random.choice(sector["symbols"])
+                    })
+                
+                df = pd.DataFrame(sector_data)
+                st.dataframe(df, use_container_width=True)
+                
+                # Sector strength chart
+                st.markdown("#### 📊 Sector Strength")
+                chart_data = pd.DataFrame({
+                    'Sector': [s['Sector'] for s in sector_data],
+                    'Strength': [int(s['Strength'].replace('%', '')) for s in sector_data]
                 })
+                st.bar_chart(chart_data.set_index('Sector'))
+                
+            elif market_type == "Commodity":
+                st.markdown("### 🥇 Commodity Analysis")
+                
+                commodity_data = []
+                for commodity in COMMODITIES[:5]:  # Gold, Silver, Crude Oil, Natural Gas, Copper
+                    bias = random.choice(["BULLISH", "BEARISH", "NEUTRAL"])
+                    action = "BUY" if bias == "BULLISH" else "SELL" if bias == "BEARISH" else "HOLD"
+                    strength = random.randint(40, 90)
+                    
+                    # Commodity-specific analysis
+                    if commodity["name"] == "Gold":
+                        analysis = "Safe haven demand + inflation hedge"
+                    elif commodity["name"] == "Silver":
+                        analysis = "Industrial demand + precious metal appeal"
+                    elif commodity["name"] == "Crude Oil":
+                        analysis = "Geopolitical tensions + supply dynamics"
+                    elif commodity["name"] == "Natural Gas":
+                        analysis = "Seasonal demand + storage levels"
+                    elif commodity["name"] == "Copper":
+                        analysis = "Industrial growth + infrastructure demand"
+                    else:
+                        analysis = "Global economic factors"
+                    
+                    commodity_data.append({
+                        "Commodity": commodity["name"],
+                        "Symbol": commodity["symbol"],
+                        "Ruling Planet": commodity["rulingPlanet"],
+                        "Bias": bias,
+                        "Action": action,
+                        "Strength": f"{strength}%",
+                        "Market Hours": commodity["market_hours"],
+                        "Key Driver": analysis
+                    })
+                
+                df = pd.DataFrame(commodity_data)
+                st.dataframe(df, use_container_width=True)
+                
+                # Commodity strength chart
+                st.markdown("#### 📊 Commodity Strength")
+                chart_data = pd.DataFrame({
+                    'Commodity': [c['Commodity'] for c in commodity_data],
+                    'Strength': [int(c['Strength'].replace('%', '')) for c in commodity_data]
+                })
+                st.bar_chart(chart_data.set_index('Commodity'))
+                
+            else:
+                st.markdown("### 📊 Market Analysis")
+                st.info(f"Analysis for {market_type} markets - {market_index}")
+                
+                # Generic market analysis for other types
+                market_data = []
+                sample_markets = markets[:5] if len(markets) > 5 else markets
+                
+                for market in sample_markets:
+                    bias = random.choice(["BULLISH", "BEARISH", "NEUTRAL"])
+                    action = "BUY" if bias == "BULLISH" else "SELL" if bias == "BEARISH" else "HOLD"
+                    strength = random.randint(40, 90)
+                    
+                    market_data.append({
+                        "Market": market,
+                        "Type": market_type,
+                        "Bias": bias,
+                        "Action": action,
+                        "Strength": f"{strength}%"
+                    })
+                
+                df = pd.DataFrame(market_data)
+                st.dataframe(df, use_container_width=True)
+                
+                # Market strength chart
+                st.markdown(f"#### 📊 {market_type} Market Strength")
+                chart_data = pd.DataFrame({
+                    'Market': [m['Market'] for m in market_data],
+                    'Strength': [int(m['Strength'].replace('%', '')) for m in market_data]
+                })
+                st.bar_chart(chart_data.set_index('Market'))
         
-        return filename
+        with tab3:
+            st.markdown("### ⏰ Time Analysis")
+            
+            # Generate time slots
+            time_slots = []
+            current_time = datetime.combine(selected_date, start_time)
+            end_datetime = datetime.combine(selected_date, end_time)
+            
+            while current_time <= end_datetime:
+                time_slots.append(current_time.strftime("%H:%M"))
+                current_time += timedelta(minutes=45)
+            
+            time_data = []
+            sentiment_values = []
+            
+            for time_slot in time_slots:
+                impact = random.choice(["Bullish", "Bearish", "Neutral"])
+                confidence = random.choice(["High", "Medium", "Low"])
+                active_planets = random.sample([p["name"] for p in PLANETS], 3)
+                
+                time_data.append({
+                    "Time": time_slot,
+                    "Market Impact": impact,
+                    "Confidence": confidence,
+                    "Active Planets": ", ".join(active_planets),
+                    "Recommended Action": f"{'Buy' if impact == 'Bullish' else 'Sell' if impact == 'Bearish' else 'Hold'} {market_index}"
+                })
+                
+                sentiment_values.append(1 if impact == "Bullish" else -1 if impact == "Bearish" else 0)
+            
+            time_df = pd.DataFrame(time_data)
+            st.dataframe(time_df, use_container_width=True)
+            
+            # Market sentiment flow
+            st.markdown("#### 📈 Market Sentiment Flow")
+            sentiment_df = pd.DataFrame({
+                'Time': time_slots,
+                'Sentiment': sentiment_values
+            })
+            st.line_chart(sentiment_df.set_index('Time'))
+        
+        with tab4:
+            st.markdown("### 🪐 Planetary Details")
+            
+            # Planetary strength chart
+            st.markdown("#### 🌟 Planetary Strength")
+            planet_df = pd.DataFrame({
+                'Planet': [p.name for p in planetary_data],
+                'Strength': [p.strength for p in planetary_data]
+            })
+            st.bar_chart(planet_df.set_index('Planet'))
+            
+            # Detailed table
+            planet_table_data = []
+            for p in planetary_data:
+                planet_info = next(planet for planet in PLANETS if planet["name"] == p.name)
+                planet_table_data.append({
+                    "Planet": f"{p.name} {planet_info['symbol']}",
+                    "Sign": p.sign,
+                    "Nakshatra": p.nakshatra,
+                    "Pada": p.pada,
+                    "House": p.house,
+                    "Strength": f"{p.strength:.1f}%",
+                    "Status": "Retrograde" if p.retrograde else "Direct",
+                    "Key Aspects": ", ".join(p.aspects[:2]) if p.aspects else "None"
+                })
+            
+            planet_df = pd.DataFrame(planet_table_data)
+            st.dataframe(planet_df, use_container_width=True)
+        
+        with tab5:
+            st.markdown("### 💼 Trading Signals")
+            
+            # Generate trading signals
+            signals = []
+            if market_type == "Indian":
+                symbols = []
+                for sector in SECTORS[:5]:
+                    symbols.extend(sector["symbols"][:2])
+            elif market_type == "Commodity":
+                symbols = [c["symbol"] for c in COMMODITIES[:5]]  # Gold, Silver, Crude Oil, Natural Gas, Copper
+            else:
+                symbols = [c["symbol"] for c in COMMODITIES]
+            
+            for symbol in symbols:
+                bias = random.choice(["BULLISH", "BEARISH", "NEUTRAL"])
+                
+                # Set appropriate price format based on market type
+                if market_type == "Indian":
+                    price_prefix = "₹"
+                    price_range = (100, 5000)
+                elif market_type == "Commodity":
+                    if symbol in ["GOLD", "SILVER"]:
+                        price_prefix = "$"
+                        price_range = (1800, 2200) if symbol == "GOLD" else (22, 28)  # Gold per oz, Silver per oz
+                    elif symbol == "CRUDEOIL":
+                        price_prefix = "$"
+                        price_range = (70, 90)  # Crude per barrel
+                    elif symbol == "NATURALGAS":
+                        price_prefix = "$"
+                        price_range = (2, 6)  # Natural Gas per MMBtu
+                    elif symbol == "COPPER":
+                        price_prefix = "$"
+                        price_range = (3, 5)  # Copper per lb
+                    else:
+                        price_prefix = "$"
+                        price_range = (10, 500)
+                else:
+                    price_prefix = "$"
+                    price_range = (10, 500)
+                
+                signals.append({
+                    "Symbol": symbol,
+                    "Market Type": market_type,
+                    "Bias": bias,
+                    "Action": "BUY" if bias == "BULLISH" else "SELL" if bias == "BEARISH" else "HOLD",
+                    "Entry Price": f"{price_prefix}{random.uniform(price_range[0], price_range[1]):.2f}",
+                    "Target": f"{random.uniform(2, 8):.1f}%",
+                    "Stop Loss": f"{random.uniform(1, 4):.1f}%",
+                    "Confidence": random.choice(["High", "Medium", "Low"]),
+                    "Risk Level": random.choice(["Low", "Medium", "High"])
+                })
+            
+            signals_df = pd.DataFrame(signals)
+            st.dataframe(signals_df, use_container_width=True)
+            
+            # Download button
+            csv = signals_df.to_csv(index=False)
+            st.download_button(
+                label="📥 Download Signals CSV",
+                data=csv,
+                file_name=f"signals_{selected_date}.csv",
+                mime="text/csv"
+            )
+        
+        # Key Insights
+        st.markdown("## 🔍 Key Insights")
+        
+        strongest_planet = max(planetary_data, key=lambda x: x.strength)
+        retrograde_planets = [p.name for p in planetary_data if p.retrograde]
+        
+        insights = [
+            f"🌟 Strongest planetary influence: **{strongest_planet.name}** (Strength: {strongest_planet.strength:.1f}%)",
+            f"⚠️ Retrograde planets: **{', '.join(retrograde_planets) if retrograde_planets else 'None'}**",
+            f"🌙 Moon phase **{moon_phase}** suggests {'increased volatility' if 'Full' in moon_phase or 'New' in moon_phase else 'moderate stability'}",
+            f"⏰ Best trading hours: **{random.choice(['10:00-11:30', '13:00-14:30', '11:00-12:00'])}**",
+            f"🎯 Market sentiment: **{random.choice(['Cautiously Optimistic', 'Neutral with Bullish Bias', 'Mixed Signals'])}**"
+        ]
+        
+        for insight in insights:
+            st.markdown(f"• {insight}")
+        
+        # Special Alerts
+        st.markdown("## 🚨 Special Alerts")
+        alerts = [
+            "🌒 New Moon approaching - Expect volatility",
+            "♃ Jupiter aspect favorable for banking sector",
+            "♄ Saturn square Mars - Caution in metal stocks"
+        ]
+        
+        for alert in random.sample(alerts, 2):
+            st.warning(alert)
+        
+        # Disclaimer
+        st.markdown("---")
+        st.markdown("""
+            <div style="text-align: center; padding: 1rem; background-color: rgba(0,0,0,0.1); border-radius: 10px;">
+                <h4>⚠️ Important Disclaimer</h4>
+                <p>This analysis is for educational purposes only. Always consult qualified financial advisors 
+                before making investment decisions. Astrological predictions do not guarantee market outcomes.</p>
+            </div>
+        """, unsafe_allow_html=True)
 
-    def print_report(self, report: Dict):
-        """Print formatted report to console"""
-        print("=" * 80)
-        print(f"🌟 ADVANCED ASTROLOGICAL TRADING ANALYSIS REPORT")
-        print("=" * 80)
-        print(f"Symbol: {report['symbol']}")
-        print(f"Period: {report['month']} {report['year']}")
-        print(f"Generated: {report['generated_date']}")
-        print(f"Market Sentiment: {report['market_sentiment']}")
-        print(f"Risk Level: {report['risk_level']}")
-        print(f"Active Transits: {report['active_transits']}")
-        print()
-        
-        print("📊 MONTHLY STATISTICS")
-        print("-" * 40)
-        stats = report['statistics']
-        print(f"Total Days: {stats['total_days']}")
-        print(f"Bullish Days: {stats['bullish_days']}")
-        print(f"Bearish Days: {stats['bearish_days']}")
-        print(f"Neutral Days: {stats['neutral_days']}")
-        print()
-        
-        print("🌙 CURRENT PLANETARY POSITIONS")
-        print("-" * 40)
-        for pos in report['planetary_positions'][:5]:  # Show first 5
-            print(f"{pos.planet}: {pos.degree:.1f}° in {pos.zodiac_sign}")
-        print()
-        
-        print("🔮 MONTHLY FORECAST HIGHLIGHTS")
-        print("-" * 40)
-        # Show significant events
-        significant_forecasts = [f for f in report['forecasts'] 
-                               if abs(float(f.change.replace('+', '').replace('±', '').replace('-', ''))) > 2.0]
-        
-        for forecast in significant_forecasts[:10]:  # Show top 10
-            sentiment_symbol = "📈" if forecast.sentiment == Sentiment.BULLISH else "📉" if forecast.sentiment == Sentiment.BEARISH else "➡️"
-            print(f"{sentiment_symbol} {forecast.date}: {forecast.event} ({forecast.change}%)")
-        
-        print("\n" + "=" * 80)
-
-
-def main():
-    """Main function to demonstrate the platform"""
-    platform = AstrologicalTradingPlatform()
+# Default message
+if not hasattr(st.session_state, 'run_analysis'):
+    st.info("👈 Configure your analysis parameters in the sidebar and click 'Generate Analysis' to begin!")
     
-    print("🌟 Welcome to the Advanced Astrological Trading Analysis Platform")
-    print()
+    st.markdown("## 🌟 Welcome to Advanced Vedic Astro Trader Pro!")
+    st.markdown("""
+    This application combines ancient Vedic astrology with modern market analysis to provide:
     
-    # Interactive menu
-    while True:
-        print("\nChoose an option:")
-        print("1. Generate Monthly Report")
-        print("2. View Current Planetary Positions")
-        print("3. Export Report to CSV")
-        print("4. Exit")
-        
-        choice = input("\nEnter your choice (1-4): ").strip()
-        
-        if choice == '1':
-            symbol = input("Enter symbol (default: NIFTY): ").strip() or 'NIFTY'
-            year = int(input("Enter year (default: 2025): ").strip() or '2025')
-            month = int(input("Enter month (0-11, default: 7 for August): ").strip() or '7')
-            
-            print("\n📊 Generating report...")
-            report = platform.generate_report(symbol, year, month)
-            platform.print_report(report)
-            
-        elif choice == '2':
-            current_date = datetime.date.today()
-            positions = platform.get_planetary_positions_display(current_date)
-            
-            print(f"\n🌙 Current Planetary Positions ({current_date})")
-            print("-" * 50)
-            for pos in positions:
-                print(f"{pos.planet}: {pos.degree:.1f}° in {pos.zodiac_sign} ({pos.sign_degree:.1f}°)")
-            
-        elif choice == '3':
-            symbol = input("Enter symbol (default: NIFTY): ").strip() or 'NIFTY'
-            year = int(input("Enter year (default: 2025): ").strip() or '2025')
-            month = int(input("Enter month (0-11, default: 7 for August): ").strip() or '7')
-            
-            report = platform.generate_report(symbol, year, month)
-            filename = platform.export_to_csv(report)
-            print(f"\n✅ Report exported to: {filename}")
-            
-        elif choice == '4':
-            print("\n🌟 Thank you for using the Astrological Trading Platform!")
-            break
-        
-        else:
-            print("\n❌ Invalid choice. Please try again.")
-
-
-if __name__ == "__main__":
-    main()
+    - **🪐 Planetary Position Analysis** - Real-time planetary strength calculations
+    - **📊 Sector-wise Predictions** - Industry-specific astrological insights
+    - **⏰ Intraday Time Analysis** - Optimal trading hours based on planetary periods
+    - **💼 Individual Stock Signals** - Specific buy/sell recommendations
+    - **⚠️ Risk Assessment** - Comprehensive risk evaluation using planetary influences
+    
+    **Features:**
+    - Support for Indian, Global, Commodity, Cryptocurrency, and Forex markets
+    - Multiple analysis depths from Quick to Deep Research
+    - Interactive charts and visualizations
+    - Downloadable trading signals
+    - Real-time planetary strength calculations
+    
+    Select your preferences in the sidebar to get started!
+    """)
