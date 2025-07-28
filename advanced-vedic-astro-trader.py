@@ -85,6 +85,7 @@ PLANETS = [
     {"name": "Ketu", "symbol": "☋", "nature": "Malefic"}
 ]
 
+# Enhanced SECTORS list with all requested sectors
 SECTORS = [
     {"name": "Banking & Financial Services", "symbols": ["HDFCBANK", "ICICIBANK", "SBIN", "KOTAKBANK"], "rulingPlanet": "Jupiter"},
     {"name": "Information Technology", "symbols": ["TCS", "INFY", "WIPRO", "HCLTECH"], "rulingPlanet": "Mercury"},
@@ -93,7 +94,13 @@ SECTORS = [
     {"name": "Pharmaceuticals & Healthcare", "symbols": ["SUNPHARMA", "DRREDDY", "CIPLA", "LUPIN"], "rulingPlanet": "Moon"},
     {"name": "Metals & Mining", "symbols": ["TATASTEEL", "JSWSTEEL", "VEDL", "HINDALCO"], "rulingPlanet": "Mars"},
     {"name": "FMCG & Consumer Goods", "symbols": ["HUL", "ITC", "NESTLEIND", "BRITANNIA"], "rulingPlanet": "Venus"},
-    {"name": "Infrastructure & Construction", "symbols": ["LT", "ADANIPORTS", "ULTRACEMCO", "ACC"], "rulingPlanet": "Saturn"}
+    {"name": "Infrastructure & Construction", "symbols": ["LT", "ADANIPORTS", "ULTRACEMCO", "ACC"], "rulingPlanet": "Saturn"},
+    {"name": "PSU Banking", "symbols": ["SBIN", "PNB", "BANKINDIA", "CANBK"], "rulingPlanet": "Jupiter"},
+    {"name": "Oil & Gas", "symbols": ["RELIANCE", "ONGC", "IOC", "GAIL"], "rulingPlanet": "Sun"},
+    {"name": "Gold & Precious Metals", "symbols": ["GOLDBEES", "GOLDGUINEA", "MANAPPURAM", "MUTHOOTFIN"], "rulingPlanet": "Sun"},
+    {"name": "Sugar", "symbols": ["BALRAMCHIN", "SHREERENUKA", "BAJAJHIND", "DHAMPUR"], "rulingPlanet": "Venus"},
+    {"name": "Tea & Plantation", "symbols": ["TATACONS", "MCLEODRUS", "JAYSHREETEK", "HARRMALAYA"], "rulingPlanet": "Moon"},
+    {"name": "Cement", "symbols": ["ULTRACEMCO", "ACC", "AMBUJACEM", "SHREECEM"], "rulingPlanet": "Saturn"}
 ]
 
 COMMODITIES = [
@@ -252,8 +259,14 @@ with st.sidebar:
         ["Indian", "Global", "Commodity", "Cryptocurrency", "Forex"]
     )
     
+    # Enhanced Indian market options with all requested sectors
     if market_type == "Indian":
-        markets = ["Nifty 50", "Bank Nifty", "Sensex", "Nifty IT", "Nifty Auto"]
+        markets = [
+            "Nifty 50", "Bank Nifty", "Sensex", "Nifty IT", "Nifty Auto",
+            "Nifty Pharma", "Nifty FMCG", "Nifty Metal", "Nifty PSU Bank",
+            "Nifty Oil & Gas", "Gold ETF", "Nifty Commodities",
+            "Sugar Stocks", "Tea & Plantation", "Cement Sector"
+        ]
     elif market_type == "Global":
         markets = ["Dow Jones", "Nasdaq", "S&P 500", "FTSE 100", "DAX"]
     elif market_type == "Commodity":
@@ -402,9 +415,9 @@ if hasattr(st.session_state, 'run_analysis') and st.session_state.run_analysis:
                 signal_items = [{"name": market} for market in markets[:6]]
                 signal_type = "market"
             
-            bullish_count = random.randint(2, 4)
-            bearish_count = random.randint(1, 3)
-            neutral_count = random.randint(2, 4)
+            bullish_count = random.randint(3, 5)
+            bearish_count = random.randint(2, 4)
+            neutral_count = random.randint(3, 5)
             
             col1, col2, col3 = st.columns(3)
             
@@ -426,7 +439,29 @@ if hasattr(st.session_state, 'run_analysis') and st.session_state.run_analysis:
                             driver = "Strong fundamentals"
                     else:
                         planet_info = f"Planetary influence positive"
-                        driver = "Technical breakout expected"
+                        if market_type == "Indian" and "name" in item:
+                            if "FMCG" in item['name']:
+                                driver = "Venus favorable for consumer goods"
+                            elif "Pharma" in item['name']:
+                                driver = "Moon strength boosts healthcare"
+                            elif "Metal" in item['name']:
+                                driver = "Mars energy supports metals"
+                            elif "PSU Bank" in item['name']:
+                                driver = "Jupiter blesses public banking"
+                            elif "Oil & Gas" in item['name']:
+                                driver = "Sun power energizes oil sector"
+                            elif "Gold" in item['name']:
+                                driver = "Sun exaltation favors gold"
+                            elif "Sugar" in item['name']:
+                                driver = "Venus sweetens sugar prospects"
+                            elif "Tea" in item['name']:
+                                driver = "Moon nourishes plantation sector"
+                            elif "Cement" in item['name']:
+                                driver = "Saturn strengthens construction"
+                            else:
+                                driver = "Technical breakout expected"
+                        else:
+                            driver = "Technical breakout expected"
                     
                     st.markdown(f"""
                         <div class="bullish-card">
@@ -454,7 +489,17 @@ if hasattr(st.session_state, 'run_analysis') and st.session_state.run_analysis:
                         else:
                             driver = "Bearish sentiment"
                     else:
-                        driver = "Technical breakdown risk"
+                        if market_type == "Indian" and "name" in item:
+                            if "FMCG" in item['name']:
+                                driver = "Venus weak - consumer spending down"
+                            elif "Pharma" in item['name']:
+                                driver = "Moon afflicted - regulatory concerns"
+                            elif "Metal" in item['name']:
+                                driver = "Mars retrograde - demand slowdown"
+                            else:
+                                driver = "Technical breakdown risk"
+                        else:
+                            driver = "Technical breakdown risk"
                     
                     st.markdown(f"""
                         <div class="bearish-card">
@@ -481,7 +526,7 @@ if hasattr(st.session_state, 'run_analysis') and st.session_state.run_analysis:
         
         with tab2:
             if market_type == "Indian":
-                st.markdown("### 🏭 Sector Analysis")
+                st.markdown("### 🏭 Comprehensive Sector Analysis")
                 
                 sector_data = []
                 for sector in SECTORS:
@@ -502,7 +547,7 @@ if hasattr(st.session_state, 'run_analysis') and st.session_state.run_analysis:
                 st.dataframe(df, use_container_width=True)
                 
                 # Sector strength chart
-                st.markdown("#### 📊 Sector Strength")
+                st.markdown("#### 📊 Sector Strength Distribution")
                 chart_data = pd.DataFrame({
                     'Sector': [s['Sector'] for s in sector_data],
                     'Strength': [int(s['Strength'].replace('%', '')) for s in sector_data]
@@ -663,7 +708,7 @@ if hasattr(st.session_state, 'run_analysis') and st.session_state.run_analysis:
             signals = []
             if market_type == "Indian":
                 symbols = []
-                for sector in SECTORS[:5]:
+                for sector in SECTORS[:8]:  # Use more sectors for signals
                     symbols.extend(sector["symbols"][:2])
             elif market_type == "Commodity":
                 symbols = [c["symbol"] for c in COMMODITIES[:5]]  # Gold, Silver, Crude Oil, Natural Gas, Copper
@@ -735,6 +780,15 @@ if hasattr(st.session_state, 'run_analysis') and st.session_state.run_analysis:
             f"🎯 Market sentiment: **{random.choice(['Cautiously Optimistic', 'Neutral with Bullish Bias', 'Mixed Signals'])}**"
         ]
         
+        if market_type == "Indian":
+            sector_insights = [
+                f"🏭 **Pharma sector** shows strong Moon influence - healthcare demand rising",
+                f"💰 **PSU Banks** benefit from Jupiter's blessing - public sector strength",
+                f"🥇 **Gold ETFs** shine with Sun's power - safe haven appeal",
+                f"🏗️ **Cement sector** gains Saturn's stability - infrastructure boost"
+            ]
+            insights.extend(random.sample(sector_insights, 2))
+        
         for insight in insights:
             st.markdown(f"• {insight}")
         
@@ -743,10 +797,12 @@ if hasattr(st.session_state, 'run_analysis') and st.session_state.run_analysis:
         alerts = [
             "🌒 New Moon approaching - Expect volatility",
             "♃ Jupiter aspect favorable for banking sector",
-            "♄ Saturn square Mars - Caution in metal stocks"
+            "♄ Saturn square Mars - Caution in metal stocks",
+            "☉ Sun exalted - Golden opportunities in precious metals",
+            "♀ Venus strong - FMCG and consumer goods bullish"
         ]
         
-        for alert in random.sample(alerts, 2):
+        for alert in random.sample(alerts, 3):
             st.warning(alert)
         
         # Disclaimer
@@ -768,17 +824,34 @@ if not hasattr(st.session_state, 'run_analysis'):
     This application combines ancient Vedic astrology with modern market analysis to provide:
     
     - **🪐 Planetary Position Analysis** - Real-time planetary strength calculations
-    - **📊 Sector-wise Predictions** - Industry-specific astrological insights
+    - **📊 Comprehensive Sector Analysis** - All major Indian market sectors including:
+      - Traditional sectors (Banking, IT, Auto, Energy)
+      - **NEW**: Pharma, FMCG, Metal, PSU Banking
+      - **NEW**: Oil & Gas, Gold ETF, Sugar, Tea & Plantation
+      - **NEW**: Cement and Infrastructure sectors
     - **⏰ Intraday Time Analysis** - Optimal trading hours based on planetary periods
     - **💼 Individual Stock Signals** - Specific buy/sell recommendations
     - **⚠️ Risk Assessment** - Comprehensive risk evaluation using planetary influences
     
-    **Features:**
-    - Support for Indian, Global, Commodity, Cryptocurrency, and Forex markets
+    **Enhanced Features:**
+    - Support for **15 Indian market sectors** including all major indices
+    - Support for Global, Commodity, Cryptocurrency, and Forex markets
     - Multiple analysis depths from Quick to Deep Research
     - Interactive charts and visualizations
     - Downloadable trading signals
     - Real-time planetary strength calculations
+    - Specialized analysis for new sectors like PSU Banking, Tea, Sugar, and Cement
+    
+    **New Sectors Added:**
+    - 💊 **Nifty Pharma** - Healthcare and pharmaceutical stocks
+    - 🛒 **Nifty FMCG** - Fast-moving consumer goods
+    - 🔩 **Nifty Metal** - Steel, aluminum, and mining companies
+    - 🏛️ **Nifty PSU Bank** - Public sector banking
+    - ⛽ **Nifty Oil & Gas** - Energy sector stocks
+    - 🥇 **Gold ETF** - Precious metals and gold investments
+    - 🍯 **Sugar Stocks** - Sugar industry companies
+    - 🍃 **Tea & Plantation** - Tea gardens and plantation companies
+    - 🏗️ **Cement Sector** - Construction and cement companies
     
     Select your preferences in the sidebar to get started!
     """)
